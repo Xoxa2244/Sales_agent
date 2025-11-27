@@ -16,9 +16,7 @@ interface LogEntry {
 }
 
 interface SalesAgentConfig {
-  goal: string;
-  allowedTopics: string;
-  forbiddenTopics: string;
+  guardrails?: string;
   baseSystemPrompt: string;
   personaId?: string;
   personaSystemPrompt?: string;

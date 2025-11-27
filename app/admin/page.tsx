@@ -5,9 +5,7 @@ import Link from "next/link";
 import { AGENT_PERSONAS, AgentPersonaId, type AgentPersona } from "@/lib/agentPersonas";
 
 interface SalesAgentConfig {
-  goal: string;
-  allowedTopics: string;
-  forbiddenTopics: string;
+  guardrails?: string;
   baseSystemPrompt: string;
   personaId?: AgentPersonaId;
   personaSystemPrompt?: string;
@@ -15,9 +13,7 @@ interface SalesAgentConfig {
 }
 
 const defaultConfig: SalesAgentConfig = {
-  goal: "Schedule a demo meeting with potential clients interested in our product.",
-  allowedTopics: "Product features, pricing, benefits, use cases, scheduling availability, company background.",
-  forbiddenTopics: "Personal information requests, financial details beyond pricing, competitor comparisons.",
+  guardrails: "",
   baseSystemPrompt: "You are a professional sales agent. Your goal is to qualify leads and schedule demo meetings. Be friendly, professional, and goal-oriented.",
   personaId: "ilona",
   personaSystemPrompt: AGENT_PERSONAS.find(p => p.id === "ilona")?.defaultSystemPrompt || "",
@@ -217,77 +213,25 @@ export default function AdminPage() {
         />
       </div>
 
-      {/* Legacy fields (can be hidden or kept) */}
-      <div style={{ marginBottom: "2rem", padding: "1rem", backgroundColor: "#f9f9f9", borderRadius: "4px" }}>
-        <h3 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: "600" }}>
-          Additional Settings
-        </h3>
-        
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="goal"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
-          >
-            Goal
-          </label>
-          <textarea
-            id="goal"
-            value={config.goal}
-            onChange={(e) => setConfig((prev) => ({ ...prev, goal: e.target.value }))}
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "14px",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="allowedTopics"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
-          >
-            Allowed Topics
-          </label>
-          <textarea
-            id="allowedTopics"
-            value={config.allowedTopics}
-            onChange={(e) => setConfig((prev) => ({ ...prev, allowedTopics: e.target.value }))}
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "14px",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="forbiddenTopics"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
-          >
-            Forbidden Topics
-          </label>
-          <textarea
-            id="forbiddenTopics"
-            value={config.forbiddenTopics}
-            onChange={(e) => setConfig((prev) => ({ ...prev, forbiddenTopics: e.target.value }))}
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: "14px",
-            }}
-          />
-        </div>
+      {/* Guardrails */}
+      <div style={{ marginBottom: "2rem" }}>
+        <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", fontWeight: "600" }}>
+          Guardrails
+        </h2>
+        <textarea
+          value={config.guardrails || ""}
+          onChange={(e) => setConfig((prev) => ({ ...prev, guardrails: e.target.value }))}
+          rows={8}
+          placeholder="Define rules and constraints for the agent. For example:&#10;- Do not discuss pricing without approval&#10;- Never make promises about delivery dates&#10;- Always verify customer information before proceeding"
+          style={{
+            width: "100%",
+            padding: "0.75rem",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            fontSize: "14px",
+            fontFamily: "monospace",
+          }}
+        />
       </div>
 
       {/* Training Summary Display */}
