@@ -47,6 +47,9 @@ export class VoiceAgentSession {
     // the client_secret.value should be used directly as the apiKey
     try {
       console.log("Attempting to connect with client secret...");
+      console.log("Client secret length:", clientSecret.length);
+      
+      // Try connecting with minimal config first
       await client.connect({
         apiKey: clientSecret,
         model: "gpt-4o-mini-realtime-preview",
@@ -63,7 +66,10 @@ export class VoiceAgentSession {
         console.error("Error message:", error.message);
         console.error("Error stack:", error.stack);
       }
-      throw error;
+      // Re-throw with more context
+      throw new Error(
+        `Failed to connect to Realtime API: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
 
     this.client = client;
