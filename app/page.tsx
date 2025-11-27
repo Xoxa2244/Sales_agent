@@ -111,7 +111,7 @@ export default function HomePage() {
   const buildFinalInstructions = (mode: VoiceAgentMode): string => {
     // Load config from localStorage
     const stored = localStorage.getItem("salesAgentConfig");
-    let personaSystemPrompt = BASE_SALES_AGENT_PROMPT;
+    let personaSystemPrompt: string | null = null;
     let personaId: string | undefined;
 
     if (stored) {
@@ -122,13 +122,23 @@ export default function HomePage() {
           personaSystemPrompt = config.personaSystemPrompt;
           console.log("Using personaSystemPrompt from config, length:", personaSystemPrompt.length);
         } else {
-          console.log("No personaSystemPrompt in config, using default");
+          console.log("No personaSystemPrompt in config, will use default from persona");
         }
       } catch (error) {
         console.error("Failed to parse stored config:", error);
       }
     } else {
-      console.log("No config found in localStorage");
+      console.log("No config found in localStorage, will use default from persona");
+    }
+    
+    // Если нет personaSystemPrompt в конфиге, используем дефолтный промпт персоны
+    if (!personaSystemPrompt) {
+      // Импортируем персоны для получения дефолтного промпта
+      const { AGENT_PERSONAS } = require("@/lib/agentPersonas");
+      const defaultPersonaId = personaId || "ilona";
+      const defaultPersona = AGENT_PERSONAS.find((p: any) => p.id === defaultPersonaId) || AGENT_PERSONAS[0];
+      personaSystemPrompt = defaultPersona.defaultSystemPrompt;
+      console.log("Using default personaSystemPrompt for:", defaultPersona.name);
     }
 
     let instructions = personaSystemPrompt;

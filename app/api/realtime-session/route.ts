@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
     console.log("SERVER creating realtime session with:", {
       hasInstructions: !!sessionConfig.instructions,
       instructionsLength: sessionConfig.instructions?.length || 0,
+      instructionsPreview: sessionConfig.instructions?.substring(0, 200) || "none",
+      containsIlona: sessionConfig.instructions?.includes("Ilona") || false,
       note: "voice will be set on client side",
     });
 

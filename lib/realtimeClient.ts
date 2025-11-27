@@ -42,6 +42,9 @@ export class VoiceAgentSession {
 
     console.log("Creating session with persona:", persona.name, "voice:", personaVoice);
     console.log("Instructions length:", finalInstructions.length);
+    console.log("Instructions preview (first 200 chars):", finalInstructions.substring(0, 200));
+    console.log("Instructions contains 'Ilona':", finalInstructions.includes("Ilona"));
+    console.log("Instructions contains 'greet first':", finalInstructions.includes("greet first") || finalInstructions.includes("Always greet"));
 
     // 2. Берём ephemeral clientSecret с бэкенда, передавая только instructions
     // Voice НЕ передаем в API route - вызывает 500 для некоторых голосов (mira, ember, copper)
@@ -72,16 +75,20 @@ export class VoiceAgentSession {
       throw new Error("Invalid client secret from backend");
     }
 
-    // 3. Создаём голосового агента (параметры уже переданы в API route, но нужны для RealtimeAgent)
+    // 3. Создаём голосового агента
+    // ВАЖНО: instructions должны быть установлены и в RealtimeAgent, и переданы в API route
     // Используем имя персоны как есть (Ilona), не lowercase
+    console.log("Creating RealtimeAgent with instructions length:", finalInstructions.length);
     const agent = new RealtimeAgent({
       name: persona.name, // Используем "Ilona" вместо "ilona"
       model: "gpt-4o-realtime-preview",
-      instructions: finalInstructions,
+      instructions: finalInstructions, // КРИТИЧНО: инструкции должны быть здесь
       inputModalities: ["audio"],
       outputModalities: ["audio"],
       voice: personaVoice,
     } as any);
+    
+    console.log("RealtimeAgent created, checking if instructions are set:", !!agent);
 
     // 4. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
