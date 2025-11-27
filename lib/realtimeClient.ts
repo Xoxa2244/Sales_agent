@@ -43,14 +43,14 @@ export class VoiceAgentSession {
     console.log("Creating session with persona:", persona.name, "voice:", personaVoice);
     console.log("Instructions length:", finalInstructions.length);
 
-    // 2. Берём ephemeral clientSecret с бэкенда, передавая только instructions
-    // Voice устанавливается в RealtimeAgent на клиенте, не в API route
+    // 2. Берём ephemeral clientSecret с бэкенда, передавая instructions и voice
+    // Voice передаем в API route (как работало для Сары), чтобы сессия создавалась с правильным голосом
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instructions: finalInstructions,
-        // voice не передаем - он устанавливается в RealtimeAgent
+        voice: personaVoice, // Передаем voice в API route, как для Сары
       }),
     });
 
@@ -72,8 +72,9 @@ export class VoiceAgentSession {
     }
 
     // 3. Создаём голосового агента (параметры уже переданы в API route, но нужны для RealtimeAgent)
+    // Используем имя персоны как есть (Ilona), не lowercase
     const agent = new RealtimeAgent({
-      name: persona.name.toLowerCase(),
+      name: persona.name, // Используем "Ilona" вместо "ilona"
       model: "gpt-4o-realtime-preview",
       instructions: finalInstructions,
       inputModalities: ["audio"],
