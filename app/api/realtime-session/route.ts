@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { instructions, voice } = await req.json().catch(() => ({}));
+  const { instructions } = await req.json().catch(() => ({}));
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Build session config with instructions and voice
+    // Build session config with instructions only
+    // Note: voice should be set on client side in RealtimeAgent, not in session creation
     const sessionConfig: any = {
       model: "gpt-4o-realtime-preview",
     };
@@ -25,14 +26,13 @@ export async function POST(req: NextRequest) {
       sessionConfig.instructions = instructions;
     }
 
-    if (voice && typeof voice === "string") {
-      sessionConfig.voice = voice;
-    }
+    // Voice is NOT set here - it should be set in RealtimeAgent on client side
+    // Some voices may not be supported in /v1/realtime/sessions endpoint
 
     console.log("SERVER creating realtime session with:", {
       hasInstructions: !!sessionConfig.instructions,
       instructionsLength: sessionConfig.instructions?.length || 0,
-      voice: sessionConfig.voice || "not set",
+      note: "voice will be set in RealtimeAgent on client",
     });
 
     // 1. Создаём realtime-сессию в OpenAI

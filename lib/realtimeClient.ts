@@ -43,13 +43,14 @@ export class VoiceAgentSession {
     console.log("Creating session with persona:", persona.name, "voice:", personaVoice);
     console.log("Instructions length:", finalInstructions.length);
 
-    // 2. Берём ephemeral clientSecret с бэкенда, передавая instructions и voice
+    // 2. Берём ephemeral clientSecret с бэкенда, передавая только instructions
+    // Voice устанавливается в RealtimeAgent на клиенте, не в API route
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instructions: finalInstructions,
-        voice: personaVoice,
+        // voice не передаем - он устанавливается в RealtimeAgent
       }),
     });
 
