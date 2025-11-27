@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
 
     const data: RealtimeSessionResponse = await openaiResp.json();
 
-    // Extract client secret from response
+    // Extract client secret and session ID from response
     const clientSecret = data.client_secret?.value;
+    const sessionId = data.id;
 
     if (!clientSecret) {
       return NextResponse.json(
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { clientSecret },
+      { clientSecret, sessionId },
       { status: 200 }
     );
   } catch (error) {

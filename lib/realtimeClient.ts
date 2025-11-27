@@ -37,15 +37,15 @@ export class VoiceAgentSession {
     // 2. Create WebRTC client
     const client = new OpenAIRealtimeWebRTC();
 
-    // 3. Connect to Realtime API
+    // 3. Connect to Realtime API using client secret as apiKey
+    // The client secret from the session API is used directly as the apiKey
+    // Simplified configuration to avoid SDP parsing issues
     await client.connect({
       apiKey: clientSecret,
-      model: "gpt-4o-mini-realtime-preview",
       initialSessionConfig: {
         instructions: options.instructions,
         voice: "alloy",
         modalities: ["text", "audio"],
-        // VAD and other settings can be added here if needed
       },
     });
 
