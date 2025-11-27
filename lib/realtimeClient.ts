@@ -37,12 +37,14 @@ export class VoiceAgentSession {
       voice: "alloy",
     } as any);
 
-    const session = new RealtimeSession(agent);
-
-    await session.connect({
+    // Передаём apiKey и useInsecureApiKey в конструктор сессии
+    const session = new RealtimeSession(agent, {
       apiKey,
       useInsecureApiKey: true,
     } as any);
+
+    // Подключаемся без параметров — опции уже заданы в конструкторе
+    await session.connect();
 
     console.log("Realtime session connected");
 
