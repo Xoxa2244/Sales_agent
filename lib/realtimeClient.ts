@@ -16,16 +16,31 @@ export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    // 1. Берём ephemeral clientSecret с бэкенда
+    const res = await fetch("/api/realtime-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}), // пока без доп. параметров
+    });
 
-    if (!apiKey || typeof apiKey !== "string") {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
       throw new Error(
-        "NEXT_PUBLIC_OPENAI_API_KEY is not set. Please configure it in Vercel env."
+        errorData.error || "Failed to get realtime session token"
       );
     }
 
-    console.log("Using OpenAI API key prefix:", apiKey.slice(0, 7)); // ожидаем 'sk-proj'
+    const data = await res.json();
+    const clientSecret: string = data.clientSecret;
 
+    console.log("Received client secret:", !!clientSecret);
+    console.log("Client secret length:", clientSecret?.length);
+
+    if (!clientSecret || typeof clientSecret !== "string") {
+      throw new Error("Invalid client secret from backend");
+    }
+
+    // 2. Создаём голосового агента
     const agent = new RealtimeAgent({
       name: "sales-demo-agent",
       model: "gpt-4o-realtime-preview",
@@ -37,12 +52,12 @@ export class VoiceAgentSession {
       voice: "alloy",
     } as any);
 
+    // 3. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
+    // 4. Подключаемся, используя ephemeral clientSecret как apiKey
     await session.connect({
-      apiKey,
-      // Явно просим использовать WebSocket-транспорт вместо WebRTC
-      transport: "websocket",
+      apiKey: clientSecret,
     } as any);
 
     console.log("Realtime session connected");
