@@ -37,14 +37,13 @@ export class VoiceAgentSession {
       voice: "alloy",
     } as any);
 
-    // Передаём apiKey и useInsecureApiKey в конструктор сессии
-    const session = new RealtimeSession(agent, {
-      apiKey,
-      useInsecureApiKey: true,
-    } as any);
+    const session = new RealtimeSession(agent);
 
-    // Подключаемся без параметров — опции уже заданы в конструкторе
-    await session.connect({} as any);
+    await session.connect({
+      apiKey,
+      // Явно просим использовать WebSocket-транспорт вместо WebRTC
+      transport: "websocket",
+    } as any);
 
     console.log("Realtime session connected");
 
