@@ -61,11 +61,17 @@ export class VoiceAgentSession {
     const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
     personaVoice = persona.voice;
 
+    // Use the instructions passed from the page (which includes personaSystemPrompt)
+    const finalInstructions = options.instructions || persona.defaultSystemPrompt;
+
+    console.log("Creating agent with persona:", persona.name, "voice:", personaVoice);
+    console.log("Instructions length:", finalInstructions.length);
+
     // 3. Создаём голосового агента
     const agent = new RealtimeAgent({
       name: persona.name.toLowerCase(),
       model: "gpt-4o-realtime-preview",
-      instructions: options.instructions || persona.defaultSystemPrompt,
+      instructions: finalInstructions,
       inputModalities: ["audio"],
       outputModalities: ["audio"],
       voice: personaVoice,
@@ -75,8 +81,10 @@ export class VoiceAgentSession {
     const session = new RealtimeSession(agent);
 
     // 4. Подключаемся, используя ephemeral clientSecret как apiKey
+    // Voice is already set in RealtimeAgent, but we can also pass it here if needed
     await session.connect({
       apiKey: clientSecret,
+      voice: personaVoice, // Ensure voice is passed to the session
     } as any);
 
     console.log("Realtime session connected");

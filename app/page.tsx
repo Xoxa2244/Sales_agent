@@ -112,16 +112,23 @@ export default function HomePage() {
     // Load config from localStorage
     const stored = localStorage.getItem("salesAgentConfig");
     let personaSystemPrompt = BASE_SALES_AGENT_PROMPT;
+    let personaId: string | undefined;
 
     if (stored) {
       try {
         const config: SalesAgentConfig = JSON.parse(stored);
+        personaId = config.personaId;
         if (config.personaSystemPrompt) {
           personaSystemPrompt = config.personaSystemPrompt;
+          console.log("Using personaSystemPrompt from config, length:", personaSystemPrompt.length);
+        } else {
+          console.log("No personaSystemPrompt in config, using default");
         }
       } catch (error) {
         console.error("Failed to parse stored config:", error);
       }
+    } else {
+      console.log("No config found in localStorage");
     }
 
     let instructions = personaSystemPrompt;
