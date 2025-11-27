@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         "OpenAI-Beta": "realtime=v1",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini-realtime-preview",
+        model: "gpt-4o-realtime-preview",
         instructions,
       }),
     });
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
 
     console.log("SERVER realtime session created:", {
       id: data.id,
+      model: data.model,
       clientSecretPrefix:
         typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null,
     });

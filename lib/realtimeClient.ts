@@ -47,6 +47,7 @@ export class VoiceAgentSession {
     // 2. Создаём голосового агента
     const agent = new RealtimeAgent({
       name: "sales-demo-agent",
+      model: "gpt-4o-realtime-preview",
       instructions:
         options.instructions ||
         "You are a friendly sales voice agent. Speak clearly and keep answers short.",
