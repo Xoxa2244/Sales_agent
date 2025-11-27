@@ -5,8 +5,12 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    console.error("OPENAI_API_KEY is not set in environment variables");
     return NextResponse.json(
-      { error: "Missing OPENAI_API_KEY" },
+      { 
+        error: "Missing OPENAI_API_KEY. Please set OPENAI_API_KEY in Vercel environment variables.",
+        details: "The OPENAI_API_KEY environment variable is required on the server side."
+      },
       { status: 500 }
     );
   }
