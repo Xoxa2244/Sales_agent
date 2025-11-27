@@ -20,8 +20,8 @@ export class VoiceAgentSession {
   async start(options: StartSessionOptions): Promise<void> {
     // 1. Load persona configuration first to get voice
     const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
-    let personaId: AgentPersonaId = "james";
-    let personaVoice = "ember"; // default for James
+    let personaId: AgentPersonaId = "ilona";
+    let personaVoice = "mira"; // default for Ilona
 
     if (stored) {
       try {

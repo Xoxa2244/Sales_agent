@@ -19,8 +19,8 @@ const defaultConfig: SalesAgentConfig = {
   allowedTopics: "Product features, pricing, benefits, use cases, scheduling availability, company background.",
   forbiddenTopics: "Personal information requests, financial details beyond pricing, competitor comparisons.",
   baseSystemPrompt: "You are a professional sales agent. Your goal is to qualify leads and schedule demo meetings. Be friendly, professional, and goal-oriented.",
-  personaId: "james",
-  personaSystemPrompt: AGENT_PERSONAS.find(p => p.id === "james")?.defaultSystemPrompt || "",
+  personaId: "ilona",
+  personaSystemPrompt: AGENT_PERSONAS.find(p => p.id === "ilona")?.defaultSystemPrompt || "",
   trainingSummary: null,
 };
 
@@ -78,6 +78,9 @@ export default function AdminPage() {
   };
 
   const handlePersonaChange = (personaId: AgentPersonaId) => {
+    // Only allow changing to active personas
+    if (personaId !== "ilona") return;
+    
     const persona = AGENT_PERSONAS.find(p => p.id === personaId);
     if (!persona) return;
 
@@ -109,7 +112,7 @@ export default function AdminPage() {
     setHasUnsavedChanges(true);
   };
 
-  const selectedPersona = AGENT_PERSONAS.find(p => p.id === (config.personaId || "james")) || AGENT_PERSONAS[0];
+  const selectedPersona = AGENT_PERSONAS.find(p => p.id === (config.personaId || "ilona")) || AGENT_PERSONAS[0];
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
@@ -131,42 +134,61 @@ export default function AdminPage() {
         >
           {AGENT_PERSONAS.map((persona) => {
             const isSelected = config.personaId === persona.id;
+            const isActive = persona.id === "ilona"; // Only Ilona is active for now
             return (
               <div
                 key={persona.id}
-                onClick={() => handlePersonaChange(persona.id)}
+                onClick={isActive ? () => handlePersonaChange(persona.id) : undefined}
                 style={{
                   padding: "1.5rem",
                   border: isSelected ? "2px solid #0070f3" : "2px solid #ddd",
                   borderRadius: "8px",
-                  backgroundColor: isSelected ? "#f0f7ff" : "#fff",
-                  cursor: "pointer",
+                  backgroundColor: isSelected ? "#f0f7ff" : isActive ? "#fff" : "#f5f5f5",
+                  cursor: isActive ? "pointer" : "not-allowed",
+                  opacity: isActive ? 1 : 0.5,
                   transition: "all 0.2s",
+                  position: "relative",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0, color: isActive ? "#333" : "#999" }}>
                     {persona.name}
                   </h3>
-                  {isSelected && (
-                    <span
-                      style={{
-                        padding: "0.25rem 0.75rem",
-                        backgroundColor: "#0070f3",
-                        color: "white",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Selected
-                    </span>
-                  )}
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    {!isActive && (
+                      <span
+                        style={{
+                          padding: "0.25rem 0.75rem",
+                          backgroundColor: "#999",
+                          color: "white",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        Coming soon
+                      </span>
+                    )}
+                    {isSelected && isActive && (
+                      <span
+                        style={{
+                          padding: "0.25rem 0.75rem",
+                          backgroundColor: "#0070f3",
+                          color: "white",
+                          borderRadius: "12px",
+                          fontSize: "12px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        Selected
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: "14px", color: "#666", marginBottom: "0.5rem" }}>
+                <div style={{ fontSize: "14px", color: isActive ? "#666" : "#999", marginBottom: "0.5rem" }}>
                   {persona.label}
                 </div>
-                <div style={{ fontSize: "13px", color: "#888" }}>
+                <div style={{ fontSize: "13px", color: isActive ? "#888" : "#bbb" }}>
                   {persona.description}
                 </div>
               </div>
