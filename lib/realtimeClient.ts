@@ -21,7 +21,7 @@ export class VoiceAgentSession {
     // 1. Load persona configuration first to get voice
     const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
     let personaId: AgentPersonaId = "ilona";
-    let personaVoice = "mira"; // default for Ilona
+    let personaVoice = "sage"; // default for Ilona
 
     if (stored) {
       try {
@@ -46,15 +46,14 @@ export class VoiceAgentSession {
     console.log("Instructions contains 'Ilona':", finalInstructions.includes("Ilona"));
     console.log("Instructions contains 'greet first':", finalInstructions.includes("greet first") || finalInstructions.includes("Always greet"));
 
-    // 2. Берём ephemeral clientSecret с бэкенда, передавая только instructions
-    // Voice НЕ передаем в API route - вызывает 500 для некоторых голосов (mira, ember, copper)
-    // Voice устанавливается только на клиенте через RealtimeAgent и session.connect()
+    // 2. Берём ephemeral clientSecret с бэкенда, передавая instructions и voice
+    // Voice передаем в API route для sage (поддерживается), для других голосов это вызывает 500
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instructions: finalInstructions,
-        // voice не передаем - устанавливается на клиенте
+        voice: personaVoice, // Передаем voice для sage (работает через API route)
       }),
     });
 
