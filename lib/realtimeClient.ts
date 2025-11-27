@@ -16,7 +16,6 @@ export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    // 1. Забираем ephemeral client secret с бэкенда
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -35,12 +34,15 @@ export class VoiceAgentSession {
 
     console.log("Received client secret:", !!clientSecret);
     console.log("Client secret length:", clientSecret?.length);
+    console.log(
+      "Client secret prefix:",
+      typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null
+    );
 
     if (!clientSecret || typeof clientSecret !== "string") {
       throw new Error("Invalid client secret from backend");
     }
 
-    // 2. Создаём RealtimeAgent — это и есть голосовой агент
     const agent = new RealtimeAgent({
       name: "sales-demo-agent",
       instructions:
@@ -48,17 +50,14 @@ export class VoiceAgentSession {
         "You are a friendly sales voice agent. Speak clearly and keep answers short.",
       inputModalities: ["audio"],
       outputModalities: ["audio"],
-      voice: "verse", // можно потом вынести в настройки
-    } as any); // Type assertion needed as library types may not match actual API
+      voice: "verse",
+    } as any);
 
-    // 3. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
-    // 4. Коннектимся к Realtime API
-    // В браузере RealtimeSession сам создаст WebRTC-транспорт,
-    // сам повесит микрофон и аудиовывод.
     await session.connect({
-      apiKey: clientSecret,
+      apiKey: clientSecret, // тут должен быть rtm_...
+      // model не обязателен — уже задан при создании сессии на бэке
     } as any);
 
     console.log("Realtime session connected");
@@ -69,7 +68,6 @@ export class VoiceAgentSession {
   async stop(): Promise<void> {
     if (this.session) {
       try {
-        // у RealtimeSession есть disconnect(); если нет — fallback к close()
         if (typeof (this.session as any).disconnect === "function") {
           await (this.session as any).disconnect();
         } else if (typeof (this.session as any).close === "function") {

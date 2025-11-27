@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
+  const { instructions } = await req.json().catch(() => ({}));
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Missing OPENAI_API_KEY" },
+      { status: 500 }
+    );
+  }
+
   try {
-    const { instructions } = await req.json();
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY is not set" },
-        { status: 500 }
-      );
-    }
-
-    // Create Realtime session and get ephemeral client secret
-    const openaiResp = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    // 1) Создаём realtime-сессию у OpenAI
+    const resp = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -22,38 +22,50 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-realtime-preview",
-        instructions,
+        instructions, // можно и не передавать, но пусть будет
       }),
     });
 
-    if (!openaiResp.ok) {
-      const text = await openaiResp.text();
-      console.error("OpenAI API error:", text);
+    const text = await resp.text();
+
+    if (!resp.ok) {
+      console.error("Realtime /sessions error:", resp.status, text);
       return NextResponse.json(
-        { error: "Failed to create session", details: text },
-        { status: openaiResp.status }
+        {
+          error: "Failed to create realtime session",
+          details: text,
+        },
+        { status: 500 }
       );
     }
 
-    const data = await openaiResp.json();
+    const data = JSON.parse(text);
 
-    // Extract client secret from response
-    const clientSecret = data.client_secret?.value;
+    // ожидаемый формат:
+    // { id: "...", client_secret: { value: "rtm_...", expires_at: ... }, ... }
+    const clientSecret =
+      data.client_secret?.value ?? data.client_secret ?? null;
+
+    console.log("SERVER realtime session created:", {
+      id: data.id,
+      clientSecretPrefix:
+        typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null,
+    });
 
     if (!clientSecret || typeof clientSecret !== "string") {
+      console.error("Invalid client_secret payload:", data);
       return NextResponse.json(
-        { error: "Invalid client secret from OpenAI", raw: data },
+        { error: "Invalid client_secret from OpenAI" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ clientSecret });
-  } catch (error) {
-    console.error("Error creating realtime session:", error);
+  } catch (e) {
+    console.error("Error creating realtime session:", e);
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Unexpected error creating realtime session" },
       { status: 500 }
     );
   }
 }
-
