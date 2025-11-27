@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
+    const { instructions } = await req.json();
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -17,9 +18,11 @@ export async function POST(req: NextRequest) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "OpenAI-Beta": "realtime=v1",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-realtime-preview",
+        instructions,
       }),
     });
 
@@ -34,9 +37,8 @@ export async function POST(req: NextRequest) {
 
     const data = await openaiResp.json();
 
-    // Extract client secret from response - handle different possible structures
-    const clientSecret =
-      data.client_secret?.value ?? data.client_secret ?? null;
+    // Extract client secret from response
+    const clientSecret = data.client_secret?.value;
 
     if (!clientSecret || typeof clientSecret !== "string") {
       return NextResponse.json(

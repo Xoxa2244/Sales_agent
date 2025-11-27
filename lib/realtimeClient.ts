@@ -58,10 +58,8 @@ export class VoiceAgentSession {
     // В браузере RealtimeSession сам создаст WebRTC-транспорт,
     // сам повесит микрофон и аудиовывод.
     await session.connect({
-      apiKey: clientSecret, // ephemeral key используем как apiKey
-      baseUrl: "https://api.openai.com/v1/realtime", // Используем правильный endpoint вместо /v1/realtime/calls
-      model: "gpt-4o-mini-realtime-preview",
-    } as any); // Type assertion needed as library types may not match actual API
+      apiKey: clientSecret,
+    } as any);
 
     console.log("Realtime session connected");
 
