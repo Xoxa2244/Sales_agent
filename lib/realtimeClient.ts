@@ -29,6 +29,10 @@ export class VoiceAgentSession {
 
     const data = await res.json();
     const clientSecret = data.clientSecret;
+    const sessionId = data.sessionId;
+
+    console.log("Received client secret:", clientSecret ? "present" : "missing");
+    console.log("Session ID:", sessionId);
 
     if (!clientSecret) {
       throw new Error("Invalid client secret from backend");
@@ -37,17 +41,30 @@ export class VoiceAgentSession {
     // 2. Create WebRTC client
     const client = new OpenAIRealtimeWebRTC();
 
-    // 3. Connect to Realtime API using client secret as apiKey
-    // The client secret from the session API is used directly as the apiKey
-    // Simplified configuration to avoid SDP parsing issues
-    await client.connect({
-      apiKey: clientSecret,
-      initialSessionConfig: {
-        instructions: options.instructions,
-        voice: "alloy",
-        modalities: ["text", "audio"],
-      },
-    });
+    // 3. Connect to Realtime API
+    // The client secret from session API should be used as apiKey
+    // Note: According to OpenAI docs, when using session-based auth,
+    // the client_secret.value should be used directly as the apiKey
+    try {
+      console.log("Attempting to connect with client secret...");
+      await client.connect({
+        apiKey: clientSecret,
+        model: "gpt-4o-mini-realtime-preview",
+        initialSessionConfig: {
+          instructions: options.instructions,
+          voice: "alloy",
+          modalities: ["text", "audio"],
+        },
+      });
+      console.log("Successfully connected to Realtime API");
+    } catch (error) {
+      console.error("Connection error details:", error);
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      throw error;
+    }
 
     this.client = client;
     // WebRTC transport will automatically enable microphone and audio output
