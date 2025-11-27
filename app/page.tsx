@@ -166,10 +166,22 @@ No product-specific training data is available. Start the call by quickly clarif
             ? (summary) => {
                 setTrainingSummary(summary);
                 if (typeof window !== "undefined") {
+                  // Save to both places for compatibility
                   window.localStorage.setItem(
                     "salesAgentTrainingSummary",
                     summary
                   );
+                  // Also update the config
+                  const stored = localStorage.getItem("salesAgentConfig");
+                  if (stored) {
+                    try {
+                      const config: SalesAgentConfig = JSON.parse(stored);
+                      config.trainingSummary = summary;
+                      localStorage.setItem("salesAgentConfig", JSON.stringify(config));
+                    } catch (e) {
+                      console.warn("Failed to update config with training summary:", e);
+                    }
+                  }
                 }
                 addLog(
                   "system",

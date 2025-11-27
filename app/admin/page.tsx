@@ -37,18 +37,28 @@ export default function AdminPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as SalesAgentConfig;
+        // If persona is set but no personaSystemPrompt, use default
+        if (parsed.personaId && !parsed.personaSystemPrompt) {
+          const persona = AGENT_PERSONAS.find(p => p.id === parsed.personaId);
+          if (persona) {
+            parsed.personaSystemPrompt = persona.defaultSystemPrompt;
+          }
+        }
         setConfig({
           ...parsed,
-          trainingSummary: trainingSummary || parsed.trainingSummary || null,
+          trainingSummary: parsed.trainingSummary || trainingSummary || null,
         });
       } catch (error) {
         console.error("Failed to parse stored config:", error);
       }
     } else {
-      // Load training summary if exists
-      if (trainingSummary) {
-        setConfig((prev) => ({ ...prev, trainingSummary }));
-      }
+      // Initialize with default persona
+      const defaultPersona = AGENT_PERSONAS.find(p => p.id === defaultConfig.personaId) || AGENT_PERSONAS[0];
+      setConfig({
+        ...defaultConfig,
+        personaSystemPrompt: defaultPersona.defaultSystemPrompt,
+        trainingSummary: trainingSummary || null,
+      });
     }
   }, []);
 
