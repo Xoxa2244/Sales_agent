@@ -30,14 +30,14 @@ export class VoiceAgentSession {
     const data = await res.json();
     const clientSecret = data.clientSecret;
     const sessionId = data.sessionId;
-    const apiKey = data.apiKey; // Direct API key from server
+    const apiKey = data.apiKey; // Direct API key as fallback
 
     console.log("Received client secret:", clientSecret ? "present" : "missing");
     console.log("Session ID:", sessionId);
 
-    // Try using direct API key first (more reliable with current library)
-    // If client secret doesn't work, fall back to direct API key
-    const keyToUse = apiKey || clientSecret;
+    // WebRTC in browser requires ephemeral client key
+    // Use client secret from session, or fall back to API key with useInsecureApiKey
+    const keyToUse = clientSecret || apiKey;
 
     if (!keyToUse) {
       throw new Error("Invalid credentials from backend");
@@ -47,13 +47,12 @@ export class VoiceAgentSession {
     const client = new OpenAIRealtimeWebRTC();
 
     // 3. Connect to Realtime API
-    // Try using direct API key instead of client secret
-    // The library may not properly support client secret from sessions
+    // Use ephemeral client secret if available, otherwise use API key with useInsecureApiKey flag
     try {
       console.log("Attempting to connect...");
-      console.log("Using:", apiKey ? "direct API key" : "client secret");
+      console.log("Using:", clientSecret ? "ephemeral client secret" : "API key with useInsecureApiKey");
       
-      await client.connect({
+      const connectOptions: any = {
         apiKey: keyToUse,
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
@@ -61,7 +60,15 @@ export class VoiceAgentSession {
           voice: "alloy",
           modalities: ["text", "audio"],
         },
-      });
+      };
+
+      // If using regular API key (not ephemeral), set useInsecureApiKey flag
+      if (!clientSecret && apiKey) {
+        connectOptions.useInsecureApiKey = true;
+        console.log("Using insecure API key option (for development only)");
+      }
+
+      await client.connect(connectOptions);
       console.log("Successfully connected to Realtime API");
     } catch (error) {
       console.error("Connection error details:", error);
