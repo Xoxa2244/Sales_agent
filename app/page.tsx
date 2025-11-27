@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { VoiceAgentSession, VoiceAgentMode } from "@/lib/realtimeClient";
+import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
 
 interface LogEntry {
   type: "system" | "info" | "error";
@@ -26,6 +27,11 @@ export default function HomePage() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
+
+  // Patch fetch to add OpenAI-Beta header for realtime calls
+  useEffect(() => {
+    patchRealtimeFetch();
+  }, []);
 
   // Setup fetch interceptor for debugging Realtime API calls
   useEffect(() => {
