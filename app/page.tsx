@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { VoiceAgentSession } from "@/lib/realtimeClient";
 import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
+import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 
 interface LogEntry {
   type: "system" | "info" | "error";
@@ -13,14 +14,18 @@ interface LogEntry {
 
 interface SalesAgentConfig {
   guardrails?: string;
-  baseSystemPrompt: string;
-  personaId?: string;
-  personaSystemPrompt?: string;
+  agents?: {
+    [key in AgentPersonaId]?: {
+      shortDescription?: string;
+      systemPrompt?: string;
+    };
+  };
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 export default function HomePage() {
+  const [selectedAgentId, setSelectedAgentId] = useState<AgentPersonaId>("ilona");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -31,64 +36,6 @@ export default function HomePage() {
     patchRealtimeFetch();
   }, []);
 
-  // Setup fetch interceptor for debugging Realtime API calls
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const originalFetch = window.fetch;
-
-      window.fetch = async (...args) => {
-        const [input, init] = args;
-        const url = typeof input === "string" 
-          ? input 
-          : input instanceof URL 
-          ? input.toString()
-          : input instanceof Request
-          ? input.url
-          : String(input);
-
-        if (url.includes("/v1/realtime/calls")) {
-          console.log("[DEBUG] Realtime call request:", url, init);
-
-          try {
-            const response = await originalFetch(...args);
-            const clone = response.clone();
-
-            let text: string | undefined;
-            try {
-              text = await clone.text();
-            } catch (e) {
-              console.error("[DEBUG] Failed to read response text:", e);
-            }
-
-            console.log("[DEBUG] Realtime call response status:", response.status, response.statusText);
-            console.log("[DEBUG] Realtime call response body:", text);
-            if (text) {
-              try {
-                const jsonBody = JSON.parse(text);
-                console.log("[DEBUG] Realtime call response body (parsed):", jsonBody);
-              } catch (e) {
-                // Not JSON, that's OK
-              }
-            }
-
-            return response;
-          } catch (e) {
-            console.error("[DEBUG] Realtime call fetch error:", e);
-            throw e;
-          }
-        }
-
-        return originalFetch(...args);
-      };
-
-      // Cleanup on unmount
-      return () => {
-        window.fetch = originalFetch;
-      };
-    }
-  }, []);
-
-
   const addLog = (type: LogEntry["type"], text: string) => {
     setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
   };
@@ -96,48 +43,39 @@ export default function HomePage() {
   const buildFinalInstructions = (): string => {
     // Load config from localStorage
     const stored = localStorage.getItem("salesAgentConfig");
-    let personaSystemPrompt: string = "";
-    let personaId: string | undefined;
+    const selectedAgent = AGENT_PERSONAS.find(p => p.id === selectedAgentId) || AGENT_PERSONAS[0];
+    
+    let agentSystemPrompt = selectedAgent.defaultSystemPrompt;
     let guardrails: string | undefined;
 
     if (stored) {
       try {
         const config: SalesAgentConfig = JSON.parse(stored);
-        personaId = config.personaId;
         guardrails = config.guardrails;
-        if (config.personaSystemPrompt) {
-          personaSystemPrompt = config.personaSystemPrompt;
-          console.log("Using personaSystemPrompt from config, length:", personaSystemPrompt.length);
+        
+        // Get agent-specific prompt if exists
+        if (config.agents?.[selectedAgentId]?.systemPrompt) {
+          agentSystemPrompt = config.agents[selectedAgentId]!.systemPrompt!;
+          console.log(`Using custom systemPrompt for ${selectedAgent.name}, length: ${agentSystemPrompt.length}`);
         } else {
-          console.log("No personaSystemPrompt in config, will use default from persona");
+          agentSystemPrompt = selectedAgent.defaultSystemPrompt;
+          console.log(`Using default systemPrompt for ${selectedAgent.name}, length: ${agentSystemPrompt.length}`);
         }
       } catch (error) {
         console.error("Failed to parse stored config:", error);
       }
-    } else {
-      console.log("No config found in localStorage, will use default from persona");
-    }
-    
-    // Если нет personaSystemPrompt в конфиге, используем дефолтный промпт персоны
-    if (!personaSystemPrompt) {
-      // Импортируем персоны для получения дефолтного промпта
-      const { AGENT_PERSONAS } = require("@/lib/agentPersonas");
-      const defaultPersonaId = personaId || "ilona";
-      const defaultPersona = AGENT_PERSONAS.find((p: any) => p.id === defaultPersonaId) || AGENT_PERSONAS[0];
-      personaSystemPrompt = defaultPersona.defaultSystemPrompt;
-      console.log("Using default personaSystemPrompt for:", defaultPersona.name);
     }
 
-    let instructions = personaSystemPrompt;
+    let instructions = agentSystemPrompt;
 
-    // Добавляем guardrails если они есть
+    // Add guardrails if they exist
     if (guardrails && guardrails.trim()) {
       instructions = `${instructions}
 
 # Guardrails
 
 ${guardrails}`;
-      console.log("Added guardrails to instructions, length:", guardrails.length);
+      console.log("Added guardrails to instructions");
     }
 
     return instructions;
@@ -157,6 +95,7 @@ ${guardrails}`;
       await session.start({
         instructions: finalInstructions,
         mode: "call",
+        agentId: selectedAgentId,
       });
 
       sessionRef.current = session;
@@ -194,12 +133,65 @@ ${guardrails}`;
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1000px", margin: "0 auto" }}>
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
       <h1 style={{ marginBottom: "3rem", fontSize: "2rem", fontWeight: "600", textAlign: "center" }}>
         Voice Sales Agent Demo
       </h1>
 
-      {/* Start Session Button - Large Square with Gradient */}
+      {/* Agent Selection */}
+      <div style={{ marginBottom: "3rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "1.5rem",
+          }}
+        >
+          {AGENT_PERSONAS.map((agent) => {
+            const isSelected = selectedAgentId === agent.id;
+            return (
+              <div
+                key={agent.id}
+                onClick={() => !isRunning && setSelectedAgentId(agent.id)}
+                style={{
+                  padding: "1.5rem",
+                  border: isSelected ? "3px solid #0070f3" : "2px solid #ddd",
+                  borderRadius: "12px",
+                  backgroundColor: isSelected ? "#f0f7ff" : "#fff",
+                  cursor: isRunning ? "not-allowed" : "pointer",
+                  opacity: isRunning ? 0.6 : 1,
+                  transition: "all 0.2s",
+                }}
+              >
+                <h3 style={{ fontSize: "24px", fontWeight: "600", marginBottom: "0.5rem", color: "#333" }}>
+                  {agent.name}
+                </h3>
+                <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>
+                  {agent.shortDescription}
+                </p>
+                {isSelected && (
+                  <div
+                    style={{
+                      marginTop: "1rem",
+                      padding: "0.5rem",
+                      backgroundColor: "#0070f3",
+                      color: "white",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "500",
+                      textAlign: "center",
+                    }}
+                  >
+                    Selected
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Start Session Button */}
       <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "center" }}>
         <button
           onClick={isRunning ? handleStop : handleStart}

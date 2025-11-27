@@ -9,30 +9,17 @@ import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 export interface StartSessionOptions {
   instructions: string;
   mode?: "call"; // Only call mode is supported now
+  agentId?: AgentPersonaId; // Selected agent ID
 }
 
 export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    // 1. Load persona configuration first to get voice
-    const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
-    let personaId: AgentPersonaId = "ilona";
-    let personaVoice = "sage"; // default for Ilona
-
-    if (stored) {
-      try {
-        const config = JSON.parse(stored) as { personaId?: AgentPersonaId };
-        if (config.personaId) {
-          personaId = config.personaId;
-        }
-      } catch (e) {
-        console.warn("Failed to parse config for persona:", e);
-      }
-    }
-
+    // 1. Get selected agent ID from options or use default
+    const personaId: AgentPersonaId = options.agentId || "ilona";
     const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
-    personaVoice = persona.voice;
+    const personaVoice = persona.voice;
 
     // Use the instructions passed from the page (which includes personaSystemPrompt)
     const finalInstructions = options.instructions || persona.defaultSystemPrompt;
