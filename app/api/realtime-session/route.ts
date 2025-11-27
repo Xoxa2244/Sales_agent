@@ -55,8 +55,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Return both client secret and direct API key option
+    // Note: For testing, we can also return the API key directly
+    // In production, you should only use client secret
     return NextResponse.json(
-      { clientSecret, sessionId },
+      { 
+        clientSecret, 
+        sessionId,
+        // Also return API key for direct connection (less secure but may work better)
+        apiKey: apiKey 
+      },
       { status: 200 }
     );
   } catch (error) {

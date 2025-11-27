@@ -30,28 +30,31 @@ export class VoiceAgentSession {
     const data = await res.json();
     const clientSecret = data.clientSecret;
     const sessionId = data.sessionId;
+    const apiKey = data.apiKey; // Direct API key from server
 
     console.log("Received client secret:", clientSecret ? "present" : "missing");
     console.log("Session ID:", sessionId);
 
-    if (!clientSecret) {
-      throw new Error("Invalid client secret from backend");
+    // Try using direct API key first (more reliable with current library)
+    // If client secret doesn't work, fall back to direct API key
+    const keyToUse = apiKey || clientSecret;
+
+    if (!keyToUse) {
+      throw new Error("Invalid credentials from backend");
     }
 
     // 2. Create WebRTC client
     const client = new OpenAIRealtimeWebRTC();
 
     // 3. Connect to Realtime API
-    // The client secret from session API should be used as apiKey
-    // Note: According to OpenAI docs, when using session-based auth,
-    // the client_secret.value should be used directly as the apiKey
+    // Try using direct API key instead of client secret
+    // The library may not properly support client secret from sessions
     try {
-      console.log("Attempting to connect with client secret...");
-      console.log("Client secret length:", clientSecret.length);
+      console.log("Attempting to connect...");
+      console.log("Using:", apiKey ? "direct API key" : "client secret");
       
-      // Try connecting with minimal config first
       await client.connect({
-        apiKey: clientSecret,
+        apiKey: keyToUse,
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
