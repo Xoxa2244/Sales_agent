@@ -74,7 +74,8 @@ export class VoiceAgentSession {
       } as any);
 
       // Create session with transport
-      const session = new RealtimeSession({ transport });
+      // Note: Type assertion needed as library types may not match actual API
+      const session = new (RealtimeSession as any)({ transport });
 
       // Connect session (clientSecret уже используется в транспорте через apiKey)
       await session.connect({
