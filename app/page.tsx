@@ -27,6 +27,52 @@ export default function HomePage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
 
+  // Setup fetch interceptor for debugging Realtime API calls
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const originalFetch = window.fetch;
+
+      window.fetch = async (...args) => {
+        const [input, init] = args;
+        const url = typeof input === "string" ? input : input.url;
+
+        if (url.includes("/v1/realtime/calls")) {
+          console.log("[DEBUG] Realtime call request:", url, init);
+
+          try {
+            const response = await originalFetch(...args);
+            const clone = response.clone();
+
+            let text: string | undefined;
+            try {
+              text = await clone.text();
+            } catch (e) {
+              console.error("[DEBUG] Failed to read response text:", e);
+            }
+
+            console.log("[DEBUG] Realtime call response:", {
+              status: response.status,
+              statusText: response.statusText,
+              body: text,
+            });
+
+            return response;
+          } catch (e) {
+            console.error("[DEBUG] Realtime call fetch error:", e);
+            throw e;
+          }
+        }
+
+        return originalFetch(...args);
+      };
+
+      // Cleanup on unmount
+      return () => {
+        window.fetch = originalFetch;
+      };
+    }
+  }, []);
+
   // Load config from localStorage and build default system prompt
   useEffect(() => {
     const stored = localStorage.getItem("salesAgentConfig");
