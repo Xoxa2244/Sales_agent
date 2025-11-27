@@ -81,14 +81,16 @@ export class VoiceAgentSession {
       voice: personaVoice,
     } as any);
 
-    // 3. Создаём сессию на базе агента
+    // 4. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
-    // 4. Подключаемся, используя ephemeral clientSecret как apiKey
-    // Voice is already set in RealtimeAgent, but we can also pass it here if needed
+    // 5. Подключаемся, используя ephemeral clientSecret как apiKey
+    // Устанавливаем голос через initialSessionConfig, чтобы он применился к уже созданной сессии
     await session.connect({
       apiKey: clientSecret,
-      voice: personaVoice, // Ensure voice is passed to the session
+      initialSessionConfig: {
+        voice: personaVoice,
+      },
     } as any);
 
     console.log("Realtime session connected");
