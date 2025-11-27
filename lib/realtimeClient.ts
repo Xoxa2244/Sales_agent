@@ -137,9 +137,14 @@ export class VoiceAgentSession {
     // Close session
     if (this.session) {
       try {
-        await this.session.disconnect();
+        // Use close() or disconnect() method - check what's available
+        if (typeof (this.session as any).disconnect === 'function') {
+          await (this.session as any).disconnect();
+        } else if (typeof (this.session as any).close === 'function') {
+          (this.session as any).close();
+        }
       } catch (e) {
-        console.warn("Error disconnecting session:", e);
+        console.warn("Error closing session:", e);
       }
       this.session = null;
     }
