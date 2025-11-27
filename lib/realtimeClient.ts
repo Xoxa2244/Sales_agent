@@ -16,6 +16,7 @@ export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
+    // 1. Берём client secret (rtm_...) с бэка
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,12 +26,12 @@ export class VoiceAgentSession {
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(
-        errorData.error || "Failed to get realtime session token"
+        (errorData as any).error || "Failed to get realtime session token"
       );
     }
 
     const data = await res.json();
-    const clientSecret: string = data.clientSecret;
+    const clientSecret: string = (data as any).clientSecret;
 
     console.log("Received client secret:", !!clientSecret);
     console.log("Client secret length:", clientSecret?.length);
@@ -43,6 +44,7 @@ export class VoiceAgentSession {
       throw new Error("Invalid client secret from backend");
     }
 
+    // 2. Создаём голосового агента
     const agent = new RealtimeAgent({
       name: "sales-demo-agent",
       instructions:
@@ -50,18 +52,20 @@ export class VoiceAgentSession {
         "You are a friendly sales voice agent. Speak clearly and keep answers short.",
       inputModalities: ["audio"],
       outputModalities: ["audio"],
-      voice: "verse",
+      voice: "alloy", // alloy — дефолтный голос realtime
     } as any);
 
+    // 3. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
+    // 4. Коннектимся к Realtime API
+    // В браузере RealtimeSession сам поднимет WebRTC и повесит микрофон/аудио.
     await session.connect({
-      apiKey: clientSecret, // тут должен быть rtm_...
-      // model не обязателен — уже задан при создании сессии на бэке
+      apiKey: clientSecret, // здесь ДОЛЖЕН быть rtm_...
+      // baseUrl не трогаем — SDK сам знает, куда стучаться
     } as any);
 
     console.log("Realtime session connected");
-
     this.session = session;
   }
 

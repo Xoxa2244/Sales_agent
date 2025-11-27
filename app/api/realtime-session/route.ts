@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1) Создаём realtime-сессию у OpenAI
+    // 1. Создаём realtime-сессию в OpenAI
     const resp = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-realtime-preview",
-        instructions, // можно и не передавать, но пусть будет
+        instructions,
       }),
     });
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(text);
 
     // ожидаемый формат:
-    // { id: "...", client_secret: { value: "rtm_...", expires_at: ... }, ... }
+    // { id: "sess_...", client_secret: { value: "rtm_...", ... }, ... }
     const clientSecret =
       data.client_secret?.value ?? data.client_secret ?? null;
 
