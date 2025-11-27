@@ -11,6 +11,8 @@ export interface StartSessionOptions {
 
 export class VoiceAgentSession {
   private client: OpenAIRealtimeWebRTC | null = null;
+  private microphoneStream: MediaStream | null = null;
+  private audioElement: HTMLAudioElement | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
     // 1. Get ephemeral client secret from our API
@@ -28,68 +30,108 @@ export class VoiceAgentSession {
     }
 
     const data = await res.json();
-    const clientSecret = data.clientSecret;
-    const sessionId = data.sessionId;
-    const apiKey = data.apiKey; // Direct API key as fallback
+    const clientSecret: string = data.clientSecret;
 
-    console.log("Received client secret:", clientSecret ? "present" : "missing");
-    console.log("Session ID:", sessionId);
+    console.log("Received client secret:", !!clientSecret);
+    console.log("Client secret length:", clientSecret?.length);
 
-    // WebRTC in browser requires ephemeral client key
-    // Use client secret from session, or fall back to API key with useInsecureApiKey
-    const keyToUse = clientSecret || apiKey;
-
-    if (!keyToUse) {
-      throw new Error("Invalid credentials from backend");
+    if (!clientSecret || typeof clientSecret !== "string") {
+      throw new Error("Invalid client secret from backend");
     }
 
-    // 2. Create WebRTC client
+    // 2. Get microphone stream
+    try {
+      this.microphoneStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      console.log("Microphone stream obtained");
+    } catch (error) {
+      throw new Error(
+        `Failed to access microphone: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+
+    // 3. Create audio element for output
+    this.audioElement = new Audio();
+    this.audioElement.autoplay = true;
+    console.log("Audio element created");
+
+    // 4. Create WebRTC client
     const client = new OpenAIRealtimeWebRTC();
 
-    // 3. Connect to Realtime API
-    // Use ephemeral client secret if available, otherwise use API key with useInsecureApiKey flag
+    // 5. Connect to Realtime API using clientSecret (not apiKey)
     try {
-      console.log("Attempting to connect...");
-      console.log("Using:", clientSecret ? "ephemeral client secret" : "API key with useInsecureApiKey");
+      console.log("Attempting to connect to Realtime API...");
       
-      const connectOptions: any = {
-        apiKey: keyToUse,
+      await client.connect({
+        clientSecret, // Use clientSecret, NOT apiKey
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
           voice: "alloy",
-          modalities: ["text", "audio"],
+          modalities: ["audio", "text"],
+          turn_detection: { type: "server_vad" },
         },
-      };
+      });
+      console.log("Realtime connected OK");
 
-      // If using regular API key (not ephemeral), set useInsecureApiKey flag
-      if (!clientSecret && apiKey) {
-        connectOptions.useInsecureApiKey = true;
-        console.log("Using insecure API key option (for development only)");
+      // 6. Set microphone stream and audio element if methods exist
+      // Note: These methods may not exist in all versions - library may handle automatically
+      try {
+        if (this.microphoneStream && typeof (client as any).setMicrophoneStream === 'function') {
+          (client as any).setMicrophoneStream(this.microphoneStream);
+          console.log("Microphone stream set");
+        }
+      } catch (e) {
+        console.warn("setMicrophoneStream not available, library may handle automatically");
       }
 
-      await client.connect(connectOptions);
-      console.log("Successfully connected to Realtime API");
+      try {
+        if (this.audioElement && typeof (client as any).setAudioElement === 'function') {
+          (client as any).setAudioElement(this.audioElement);
+          console.log("Audio element set");
+        }
+      } catch (e) {
+        console.warn("setAudioElement not available, library may handle automatically");
+      }
+
+      this.client = client;
     } catch (error) {
-      console.error("Connection error details:", error);
-      if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
+      console.error("Failed to connect to Realtime API:", error);
+      
+      // Cleanup on error
+      if (this.microphoneStream) {
+        this.microphoneStream.getTracks().forEach((track) => track.stop());
+        this.microphoneStream = null;
       }
-      // Re-throw with more context
+      
       throw new Error(
         `Failed to connect to Realtime API: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-
-    this.client = client;
-    // WebRTC transport will automatically enable microphone and audio output
   }
 
   async stop(): Promise<void> {
+    // Stop microphone stream
+    if (this.microphoneStream) {
+      this.microphoneStream.getTracks().forEach((track) => track.stop());
+      this.microphoneStream = null;
+    }
+
+    // Close client
     if (this.client) {
       this.client.close();
       this.client = null;
+    }
+
+    // Cleanup audio element
+    if (this.audioElement) {
+      this.audioElement.pause();
+      this.audioElement = null;
     }
   }
 

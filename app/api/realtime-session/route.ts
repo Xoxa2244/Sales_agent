@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-interface RealtimeSessionResponse {
-  client_secret: {
-    value: string;
-  };
-  id: string;
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { instructions } = await req.json();
-
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -29,7 +20,6 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-realtime-preview",
-        // Additional session options can be added here if needed
       }),
     });
 
@@ -42,31 +32,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data: RealtimeSessionResponse = await openaiResp.json();
+    const data = await openaiResp.json();
 
-    // Extract client secret and session ID from response
-    const clientSecret = data.client_secret?.value;
-    const sessionId = data.id;
+    // Extract client secret from response - handle different possible structures
+    const clientSecret =
+      data.client_secret?.value ?? data.client_secret ?? null;
 
-    if (!clientSecret) {
+    if (!clientSecret || typeof clientSecret !== "string") {
       return NextResponse.json(
-        { error: "Invalid client secret from OpenAI API" },
+        { error: "Invalid client secret from OpenAI", raw: data },
         { status: 500 }
       );
     }
 
-    // Return both client secret and direct API key option
-    // Note: For testing, we can also return the API key directly
-    // In production, you should only use client secret
-    return NextResponse.json(
-      { 
-        clientSecret, 
-        sessionId,
-        // Also return API key for direct connection (less secure but may work better)
-        apiKey: apiKey 
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ clientSecret });
   } catch (error) {
     console.error("Error creating realtime session:", error);
     return NextResponse.json(
