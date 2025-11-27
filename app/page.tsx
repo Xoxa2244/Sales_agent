@@ -34,7 +34,13 @@ export default function HomePage() {
 
       window.fetch = async (...args) => {
         const [input, init] = args;
-        const url = typeof input === "string" ? input : input.url;
+        const url = typeof input === "string" 
+          ? input 
+          : input instanceof URL 
+          ? input.toString()
+          : input instanceof Request
+          ? input.url
+          : String(input);
 
         if (url.includes("/v1/realtime/calls")) {
           console.log("[DEBUG] Realtime call request:", url, init);
