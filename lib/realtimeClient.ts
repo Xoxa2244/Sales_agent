@@ -43,14 +43,15 @@ export class VoiceAgentSession {
     console.log("Creating session with persona:", persona.name, "voice:", personaVoice);
     console.log("Instructions length:", finalInstructions.length);
 
-    // 2. Берём ephemeral clientSecret с бэкенда, передавая instructions и voice
-    // Voice передаем в API route (как работало для Сары), чтобы сессия создавалась с правильным голосом
+    // 2. Берём ephemeral clientSecret с бэкенда, передавая только instructions
+    // Voice НЕ передаем в API route - вызывает 500 для некоторых голосов (mira, ember, copper)
+    // Voice устанавливается только на клиенте через RealtimeAgent и session.connect()
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instructions: finalInstructions,
-        voice: personaVoice, // Передаем voice в API route, как для Сары
+        // voice не передаем - устанавливается на клиенте
       }),
     });
 
@@ -86,15 +87,28 @@ export class VoiceAgentSession {
     const session = new RealtimeSession(agent);
 
     // 5. Подключаемся, используя ephemeral clientSecret как apiKey
-    // Устанавливаем голос через initialSessionConfig, чтобы он применился к уже созданной сессии
+    // Голос уже установлен в RealtimeAgent, но также пробуем через connect
     await session.connect({
       apiKey: clientSecret,
+      // Пробуем установить голос через initialSessionConfig
       initialSessionConfig: {
         voice: personaVoice,
       },
     } as any);
 
-    console.log("Realtime session connected");
+    console.log("Realtime session connected with voice:", personaVoice);
+    
+    // Дополнительно пробуем установить голос через session.update() если доступно
+    try {
+      if (typeof (session as any).update === "function") {
+        await (session as any).update({
+          voice: personaVoice,
+        });
+        console.log("Voice updated via session.update()");
+      }
+    } catch (e) {
+      console.warn("Could not update voice via session.update():", e);
+    }
 
     // 5. Подписываемся на события для извлечения training summary (только в training режиме)
     if (options.mode === "training" && options.onTrainingSummary) {
