@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  const { instructions } = await req.json().catch(() => ({}));
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Missing OPENAI_API_KEY" },
+      { status: 500 }
+    );
+  }
+
+  try {
+    // 1. Создаём realtime-сессию в OpenAI
+    const resp = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "OpenAI-Beta": "realtime=v1",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview",
+        instructions,
+      }),
+    });
+
+    const text = await resp.text();
+
+    if (!resp.ok) {
+      console.error("Realtime /sessions error:", resp.status, text);
+      return NextResponse.json(
+        {
+          error: "Failed to create realtime session",
+          details: text,
+        },
+        { status: 500 }
+      );
+    }
+
+    const data = JSON.parse(text);
+
+    // ожидаемый формат:
+    // { id: "sess_...", client_secret: { value: "rtm_...", ... }, ... }
+    const clientSecret =
+      data.client_secret?.value ?? data.client_secret ?? null;
+
+    console.log("SERVER realtime session created:", {
+      id: data.id,
+      model: data.model,
+      clientSecretPrefix:
+        typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null,
+    });
+
+    if (!clientSecret || typeof clientSecret !== "string") {
+      console.error("Invalid client_secret payload:", data);
+      return NextResponse.json(
+        { error: "Invalid client_secret from OpenAI" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ clientSecret });
+  } catch (e) {
+    console.error("Error creating realtime session:", e);
+    return NextResponse.json(
+      { error: "Unexpected error creating realtime session" },
+      { status: 500 }
+    );
+  }
+}
+
