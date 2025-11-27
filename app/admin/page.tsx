@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface AgentConfig {
   goal: string;
@@ -168,7 +169,7 @@ export default function AdminPage() {
       )}
 
       <div style={{ marginTop: "2rem" }}>
-        <a
+        <Link
           href="/"
           style={{
             color: "#0070f3",
@@ -176,7 +177,7 @@ export default function AdminPage() {
           }}
         >
           ← Back to Demo
-        </a>
+        </Link>
       </div>
     </div>
   );

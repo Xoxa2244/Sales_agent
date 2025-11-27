@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { VoiceAgentSession, VoiceAgentMode } from "@/lib/realtimeClient";
 
 interface LogEntry {
@@ -268,7 +269,7 @@ export default function HomePage() {
 
       {/* Admin Link */}
       <div style={{ marginTop: "2rem" }}>
-        <a
+        <Link
           href="/admin"
           style={{
             color: "#0070f3",
@@ -276,7 +277,7 @@ export default function HomePage() {
           }}
         >
           → Configure Agent Settings
-        </a>
+        </Link>
       </div>
     </div>
   );
