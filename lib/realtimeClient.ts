@@ -68,7 +68,7 @@ export class VoiceAgentSession {
       console.log("Attempting to connect to Realtime API...");
       
       await client.connect({
-        clientSecret, // Use clientSecret, NOT apiKey
+        apiKey: clientSecret, // Pass clientSecret as apiKey parameter
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
