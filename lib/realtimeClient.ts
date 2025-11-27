@@ -44,7 +44,7 @@ export class VoiceAgentSession {
     } as any);
 
     // Подключаемся без параметров — опции уже заданы в конструкторе
-    await session.connect();
+    await session.connect({} as any);
 
     console.log("Realtime session connected");
 
