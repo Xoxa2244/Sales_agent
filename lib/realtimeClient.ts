@@ -68,8 +68,7 @@ export class VoiceAgentSession {
       console.log("Attempting to connect to Realtime API...");
       
       await client.connect({
-        apiKey: clientSecret, // Pass clientSecret as apiKey parameter
-        useInsecureApiKey: true, // Required for ephemeral client secrets in browser
+        apiKey: clientSecret, // Pass clientSecret as apiKey parameter (ephemeral key from session)
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
@@ -77,7 +76,7 @@ export class VoiceAgentSession {
           modalities: ["audio", "text"],
           // turn_detection removed - not available in current type definitions
         },
-      });
+      } as any); // Type assertion needed as library may not have full type definitions
       console.log("Realtime connected OK");
 
       // 6. Set microphone stream and audio element if methods exist
