@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { VoiceAgentSession, VoiceAgentMode } from "@/lib/realtimeClient";
 import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
+import {
+  BASE_SALES_AGENT_PROMPT,
+  TRAINING_MODE_PROMPT,
+} from "@/lib/prompts";
 
 interface LogEntry {
   type: "system" | "info" | "error";
@@ -27,6 +31,7 @@ export default function HomePage() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
+  const [trainingSummary, setTrainingSummary] = useState<string | null>(null);
 
   // Patch fetch to add OpenAI-Beta header for realtime calls
   useEffect(() => {
@@ -90,10 +95,17 @@ export default function HomePage() {
     }
   }, []);
 
+  // Load training summary from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("salesAgentTrainingSummary");
+    if (saved) setTrainingSummary(saved);
+  }, []);
+
   // Load config from localStorage and build default system prompt
   useEffect(() => {
     const stored = localStorage.getItem("salesAgentConfig");
-    let defaultPrompt = "";
+    let defaultPrompt = BASE_SALES_AGENT_PROMPT;
 
     if (stored) {
       try {
@@ -101,10 +113,8 @@ export default function HomePage() {
         defaultPrompt = `${config.baseSystemPrompt}\n\nGoal: ${config.goal}\n\nAllowed topics: ${config.allowedTopics}\n\nForbidden topics: ${config.forbiddenTopics}`;
       } catch (error) {
         console.error("Failed to parse stored config:", error);
-        defaultPrompt = "You are a professional sales agent. Be friendly and helpful.";
+        defaultPrompt = BASE_SALES_AGENT_PROMPT;
       }
-    } else {
-      defaultPrompt = "You are a professional sales agent. Be friendly and helpful.";
     }
 
     setSystemPrompt(defaultPrompt);
@@ -114,13 +124,28 @@ export default function HomePage() {
     setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
   };
 
-  const buildFinalInstructions = (prompt: string, mode: VoiceAgentMode): string => {
-    const modeInstruction =
-      mode === "training"
-        ? "\n\nСейчас человек обучает тебя и рассказывает правила. Отвечай кратко, подтверждай, что понял, можно задавать уточняющие вопросы."
-        : "\n\nСейчас человек играет роль клиента, а ты — сейлз-агент. Веди себя как в реальном звонке: уточняй потребности, квалифицируй лида, старайся привести к назначению демо-встречи.";
+  const buildFinalInstructions = (mode: VoiceAgentMode): string => {
+    let instructions = BASE_SALES_AGENT_PROMPT;
 
-    return `${prompt}${modeInstruction}`;
+    if (mode === "training") {
+      instructions = `${BASE_SALES_AGENT_PROMPT}\n\n${TRAINING_MODE_PROMPT}`;
+    } else {
+      if (trainingSummary) {
+        instructions = `${BASE_SALES_AGENT_PROMPT}
+
+### Product & Customer Profile (from training)
+
+${trainingSummary}
+
+Use this configuration as ground truth about the offer, target customers, lead source and temperature, objections and call goal. Do not repeat the training, speak as a normal sales agent to the caller.`;
+      } else {
+        instructions = `${BASE_SALES_AGENT_PROMPT}
+
+No product-specific training data is available. Start the call by quickly clarifying what we sell, who the caller is and what they are looking for, then proceed as a generic sales agent.`;
+      }
+    }
+
+    return instructions;
   };
 
   const handleStart = async () => {
@@ -132,11 +157,27 @@ export default function HomePage() {
       addLog("system", "Starting session...");
 
       const session = new VoiceAgentSession();
-      const finalInstructions = buildFinalInstructions(systemPrompt, mode);
+      const finalInstructions = buildFinalInstructions(mode);
 
       await session.start({
         instructions: finalInstructions,
         mode,
+        onTrainingSummary:
+          mode === "training"
+            ? (summary) => {
+                setTrainingSummary(summary);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem(
+                    "salesAgentTrainingSummary",
+                    summary
+                  );
+                }
+                addLog(
+                  "system",
+                  "Training profile saved. You can now switch to Call simulation mode."
+                );
+              }
+            : undefined,
       });
 
       sessionRef.current = session;

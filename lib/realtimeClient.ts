@@ -10,6 +10,7 @@ export type VoiceAgentMode = "training" | "call";
 export interface StartSessionOptions {
   instructions: string;
   mode: VoiceAgentMode;
+  onTrainingSummary?: (summary: string) => void;
 }
 
 export class VoiceAgentSession {
@@ -61,6 +62,35 @@ export class VoiceAgentSession {
     } as any);
 
     console.log("Realtime session connected");
+
+    // 5. Подписываемся на события для извлечения training summary (только в training режиме)
+    if (options.mode === "training" && options.onTrainingSummary) {
+      // Подписываемся на событие завершения ответа ассистента
+      try {
+        (session as any).on("response.completed", (event: any) => {
+          const text: string =
+            event?.response?.output_text ??
+            event?.response?.message?.content ??
+            event?.text ??
+            "";
+
+          if (!text) return;
+
+          const startTag = "###TRAINING_SUMMARY_START";
+          const endTag = "###TRAINING_SUMMARY_END";
+
+          const start = text.indexOf(startTag);
+          const end = text.indexOf(endTag);
+
+          if (start !== -1 && end !== -1 && end > start) {
+            const raw = text.substring(start + startTag.length, end).trim();
+            options.onTrainingSummary?.(raw);
+          }
+        });
+      } catch (e) {
+        console.warn("Failed to subscribe to training summary events:", e);
+      }
+    }
 
     this.session = session;
   }
