@@ -1,6 +1,6 @@
 "use client";
 
-import { OpenAIRealtimeWebRTC } from "@openai/agents/realtime";
+import { OpenAIRealtimeWebRTC, RealtimeSession } from "@openai/agents/realtime";
 
 export type VoiceAgentMode = "training" | "call";
 
@@ -10,7 +10,8 @@ export interface StartSessionOptions {
 }
 
 export class VoiceAgentSession {
-  private client: OpenAIRealtimeWebRTC | null = null;
+  private session: RealtimeSession | null = null;
+  private transport: OpenAIRealtimeWebRTC | null = null;
   private microphoneStream: MediaStream | null = null;
   private audioElement: HTMLAudioElement | null = null;
 
@@ -60,30 +61,39 @@ export class VoiceAgentSession {
     this.audioElement.autoplay = true;
     console.log("Audio element created");
 
-    // 4. Create WebRTC client
-    const client = new OpenAIRealtimeWebRTC();
-
-    // 5. Connect to Realtime API using clientSecret (not apiKey)
+    // 4. Create WebRTC transport with correct baseUrl
     try {
       console.log("Attempting to connect to Realtime API...");
       
-      await client.connect({
-        apiKey: clientSecret, // Pass clientSecret as apiKey parameter (ephemeral key from session)
+      // Create transport with ephemeral key and correct baseUrl
+      const transport = new OpenAIRealtimeWebRTC({
+        apiKey: clientSecret,
+        debug: true,
+        // ВАЖНО: принудительно используем /v1/realtime вместо /v1/realtime/calls
+        baseUrl: "https://api.openai.com/v1/realtime",
+      } as any);
+
+      // Create session with transport
+      const session = new RealtimeSession({ transport });
+
+      // Connect session (clientSecret уже используется в транспорте через apiKey)
+      await session.connect({
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
-          voice: "alloy",
+          input_audio_format: "pcm16",
+          output_audio_format: "pcm16",
           modalities: ["audio", "text"],
-          // turn_detection removed - not available in current type definitions
         },
-      } as any); // Type assertion needed as library may not have full type definitions
+      } as any);
+
       console.log("Realtime connected OK");
 
       // 6. Set microphone stream and audio element if methods exist
       // Note: These methods may not exist in all versions - library may handle automatically
       try {
-        if (this.microphoneStream && typeof (client as any).setMicrophoneStream === 'function') {
-          (client as any).setMicrophoneStream(this.microphoneStream);
+        if (this.microphoneStream && typeof (transport as any).setMicrophoneStream === 'function') {
+          (transport as any).setMicrophoneStream(this.microphoneStream);
           console.log("Microphone stream set");
         }
       } catch (e) {
@@ -91,15 +101,16 @@ export class VoiceAgentSession {
       }
 
       try {
-        if (this.audioElement && typeof (client as any).setAudioElement === 'function') {
-          (client as any).setAudioElement(this.audioElement);
+        if (this.audioElement && typeof (transport as any).setAudioElement === 'function') {
+          (transport as any).setAudioElement(this.audioElement);
           console.log("Audio element set");
         }
       } catch (e) {
         console.warn("setAudioElement not available, library may handle automatically");
       }
 
-      this.client = client;
+      this.transport = transport;
+      this.session = session;
     } catch (error) {
       console.error("Failed to connect to Realtime API:", error);
       
@@ -122,10 +133,24 @@ export class VoiceAgentSession {
       this.microphoneStream = null;
     }
 
-    // Close client
-    if (this.client) {
-      this.client.close();
-      this.client = null;
+    // Close session
+    if (this.session) {
+      try {
+        await this.session.disconnect();
+      } catch (e) {
+        console.warn("Error disconnecting session:", e);
+      }
+      this.session = null;
+    }
+
+    // Close transport
+    if (this.transport) {
+      try {
+        this.transport.close();
+      } catch (e) {
+        console.warn("Error closing transport:", e);
+      }
+      this.transport = null;
     }
 
     // Cleanup audio element
@@ -136,7 +161,7 @@ export class VoiceAgentSession {
   }
 
   isConnected(): boolean {
-    return this.client !== null;
+    return this.session !== null;
   }
 }
 
