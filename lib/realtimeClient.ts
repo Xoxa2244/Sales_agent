@@ -41,6 +41,7 @@ export class VoiceAgentSession {
 
     await session.connect({
       apiKey,
+      useInsecureApiKey: true,
     } as any);
 
     console.log("Realtime session connected");
