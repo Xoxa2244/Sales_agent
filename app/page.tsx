@@ -56,11 +56,16 @@ export default function HomePage() {
               console.error("[DEBUG] Failed to read response text:", e);
             }
 
-            console.log("[DEBUG] Realtime call response:", {
-              status: response.status,
-              statusText: response.statusText,
-              body: text,
-            });
+            console.log("[DEBUG] Realtime call response status:", response.status, response.statusText);
+            console.log("[DEBUG] Realtime call response body:", text);
+            if (text) {
+              try {
+                const jsonBody = JSON.parse(text);
+                console.log("[DEBUG] Realtime call response body (parsed):", jsonBody);
+              } catch (e) {
+                // Not JSON, that's OK
+              }
+            }
 
             return response;
           } catch (e) {
