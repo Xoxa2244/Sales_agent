@@ -74,7 +74,7 @@ export class VoiceAgentSession {
           instructions: options.instructions,
           voice: "alloy",
           modalities: ["audio", "text"],
-          turn_detection: { type: "server_vad" },
+          // turn_detection removed - not available in current type definitions
         },
       });
       console.log("Realtime connected OK");
