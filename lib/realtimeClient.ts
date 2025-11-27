@@ -16,35 +16,16 @@ export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    // 1. Берём client secret (rtm_...) с бэка
-    const res = await fetch("/api/realtime-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ instructions: options.instructions }),
-    });
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
+    if (!apiKey || typeof apiKey !== "string") {
       throw new Error(
-        (errorData as any).error || "Failed to get realtime session token"
+        "NEXT_PUBLIC_OPENAI_API_KEY is not set. Please configure it in Vercel env."
       );
     }
 
-    const data = await res.json();
-    const clientSecret: string = (data as any).clientSecret;
+    console.log("Using OpenAI API key prefix:", apiKey.slice(0, 7)); // ожидаем 'sk-proj'
 
-    console.log("Received client secret:", !!clientSecret);
-    console.log("Client secret length:", clientSecret?.length);
-    console.log(
-      "Client secret prefix:",
-      typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null
-    );
-
-    if (!clientSecret || typeof clientSecret !== "string") {
-      throw new Error("Invalid client secret from backend");
-    }
-
-    // 2. Создаём голосового агента
     const agent = new RealtimeAgent({
       name: "sales-demo-agent",
       model: "gpt-4o-realtime-preview",
@@ -53,20 +34,17 @@ export class VoiceAgentSession {
         "You are a friendly sales voice agent. Speak clearly and keep answers short.",
       inputModalities: ["audio"],
       outputModalities: ["audio"],
-      voice: "alloy", // alloy — дефолтный голос realtime
+      voice: "alloy",
     } as any);
 
-    // 3. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
-    // 4. Коннектимся к Realtime API
-    // В браузере RealtimeSession сам поднимет WebRTC и повесит микрофон/аудио.
     await session.connect({
-      apiKey: clientSecret, // здесь ДОЛЖЕН быть rtm_...
-      // baseUrl не трогаем — SDK сам знает, куда стучаться
+      apiKey,
     } as any);
 
     console.log("Realtime session connected");
+
     this.session = session;
   }
 
