@@ -15,18 +15,20 @@ interface LogEntry {
   timestamp: Date;
 }
 
-interface AgentConfig {
+interface SalesAgentConfig {
   goal: string;
   allowedTopics: string;
   forbiddenTopics: string;
   baseSystemPrompt: string;
+  personaId?: string;
+  personaSystemPrompt?: string;
+  trainingSummary?: string | null;
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 export default function HomePage() {
   const [mode, setMode] = useState<VoiceAgentMode>("training");
-  const [systemPrompt, setSystemPrompt] = useState<string>("");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -102,36 +104,33 @@ export default function HomePage() {
     if (saved) setTrainingSummary(saved);
   }, []);
 
-  // Load config from localStorage and build default system prompt
-  useEffect(() => {
-    const stored = localStorage.getItem("salesAgentConfig");
-    let defaultPrompt = BASE_SALES_AGENT_PROMPT;
-
-    if (stored) {
-      try {
-        const config: AgentConfig = JSON.parse(stored);
-        defaultPrompt = `${config.baseSystemPrompt}\n\nGoal: ${config.goal}\n\nAllowed topics: ${config.allowedTopics}\n\nForbidden topics: ${config.forbiddenTopics}`;
-      } catch (error) {
-        console.error("Failed to parse stored config:", error);
-        defaultPrompt = BASE_SALES_AGENT_PROMPT;
-      }
-    }
-
-    setSystemPrompt(defaultPrompt);
-  }, []);
-
   const addLog = (type: LogEntry["type"], text: string) => {
     setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
   };
 
   const buildFinalInstructions = (mode: VoiceAgentMode): string => {
-    let instructions = BASE_SALES_AGENT_PROMPT;
+    // Load config from localStorage
+    const stored = localStorage.getItem("salesAgentConfig");
+    let personaSystemPrompt = BASE_SALES_AGENT_PROMPT;
+
+    if (stored) {
+      try {
+        const config: SalesAgentConfig = JSON.parse(stored);
+        if (config.personaSystemPrompt) {
+          personaSystemPrompt = config.personaSystemPrompt;
+        }
+      } catch (error) {
+        console.error("Failed to parse stored config:", error);
+      }
+    }
+
+    let instructions = personaSystemPrompt;
 
     if (mode === "training") {
-      instructions = `${BASE_SALES_AGENT_PROMPT}\n\n${TRAINING_MODE_PROMPT}`;
+      instructions = `${personaSystemPrompt}\n\n${TRAINING_MODE_PROMPT}`;
     } else {
       if (trainingSummary) {
-        instructions = `${BASE_SALES_AGENT_PROMPT}
+        instructions = `${personaSystemPrompt}
 
 ### Product & Customer Profile (from training)
 
@@ -139,7 +138,7 @@ ${trainingSummary}
 
 Use this configuration as ground truth about the offer, target customers, lead source and temperature, objections and call goal. Do not repeat the training, speak as a normal sales agent to the caller.`;
       } else {
-        instructions = `${BASE_SALES_AGENT_PROMPT}
+        instructions = `${personaSystemPrompt}
 
 No product-specific training data is available. Start the call by quickly clarifying what we sell, who the caller is and what they are looking for, then proceed as a generic sales agent.`;
       }
@@ -216,27 +215,28 @@ No product-specific training data is available. Start the call by quickly clarif
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1000px", margin: "0 auto" }}>
-      <h1 style={{ marginBottom: "2rem" }}>Voice Sales Agent Demo</h1>
+      <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "600" }}>
+        Voice Sales Agent Demo
+      </h1>
 
-      {/* Mode Toggle */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-          Mode
-        </label>
+      {/* Mode Selector - Large Toggle */}
+      <div style={{ marginBottom: "2rem" }}>
         <div style={{ display: "flex", gap: "1rem" }}>
           <button
             onClick={() => setMode("training")}
             disabled={isRunning}
             style={{
-              padding: "0.5rem 1.5rem",
-              backgroundColor: mode === "training" ? "#0070f3" : "#e0e0e0",
+              flex: 1,
+              padding: "1rem 2rem",
+              fontSize: "18px",
+              fontWeight: "600",
+              backgroundColor: mode === "training" ? "#0070f3" : "#f5f5f5",
               color: mode === "training" ? "white" : "#333",
-              border: "none",
-              borderRadius: "4px",
-              fontSize: "14px",
-              fontWeight: "500",
+              border: mode === "training" ? "none" : "2px solid #ddd",
+              borderRadius: "8px",
               cursor: isRunning ? "not-allowed" : "pointer",
               opacity: isRunning ? 0.6 : 1,
+              transition: "all 0.2s",
             }}
           >
             Training
@@ -245,15 +245,17 @@ No product-specific training data is available. Start the call by quickly clarif
             onClick={() => setMode("call")}
             disabled={isRunning}
             style={{
-              padding: "0.5rem 1.5rem",
-              backgroundColor: mode === "call" ? "#0070f3" : "#e0e0e0",
+              flex: 1,
+              padding: "1rem 2rem",
+              fontSize: "18px",
+              fontWeight: "600",
+              backgroundColor: mode === "call" ? "#0070f3" : "#f5f5f5",
               color: mode === "call" ? "white" : "#333",
-              border: "none",
-              borderRadius: "4px",
-              fontSize: "14px",
-              fontWeight: "500",
+              border: mode === "call" ? "none" : "2px solid #ddd",
+              borderRadius: "8px",
               cursor: isRunning ? "not-allowed" : "pointer",
               opacity: isRunning ? 0.6 : 1,
+              transition: "all 0.2s",
             }}
           >
             Call simulation
@@ -261,55 +263,30 @@ No product-specific training data is available. Start the call by quickly clarif
         </div>
       </div>
 
-      {/* System Prompt */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <label
-          htmlFor="systemPrompt"
-          style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
-        >
-          System prompt
-        </label>
-        <textarea
-          id="systemPrompt"
-          value={systemPrompt}
-          onChange={(e) => setSystemPrompt(e.target.value)}
-          disabled={isRunning}
-          rows={8}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            fontSize: "14px",
-            fontFamily: "monospace",
-            opacity: isRunning ? 0.6 : 1,
-          }}
-        />
-      </div>
-
       {/* Start/Stop Button */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
         <button
           onClick={isRunning ? handleStop : handleStart}
           disabled={status === "connecting"}
           style={{
-            padding: "0.75rem 2rem",
+            padding: "1rem 3rem",
+            fontSize: "18px",
+            fontWeight: "600",
             backgroundColor: isRunning ? "#dc3545" : "#0070f3",
             color: "white",
             border: "none",
-            borderRadius: "4px",
-            fontSize: "16px",
-            fontWeight: "500",
+            borderRadius: "8px",
             cursor: status === "connecting" ? "wait" : "pointer",
             opacity: status === "connecting" ? 0.6 : 1,
+            transition: "all 0.2s",
           }}
         >
           {isRunning ? "Stop session" : "Start session"}
         </button>
 
-        <span
+        <div
           style={{
-            marginLeft: "1rem",
+            marginTop: "0.75rem",
             fontSize: "14px",
             color: status === "connected" ? "#28a745" : status === "connecting" ? "#ffc107" : "#6c757d",
             fontWeight: "500",
@@ -318,17 +295,19 @@ No product-specific training data is available. Start the call by quickly clarif
           {status === "disconnected" && "Disconnected"}
           {status === "connecting" && "Connecting..."}
           {status === "connected" && "Connected"}
-        </span>
+        </div>
       </div>
 
-      {/* Logs */}
+      {/* Session Logs */}
       <div style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem" }}>Session Logs</h2>
+        <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: "600" }}>
+          Session Logs
+        </h2>
         <div
           style={{
             backgroundColor: "#fff",
             border: "1px solid #ddd",
-            borderRadius: "4px",
+            borderRadius: "8px",
             padding: "1rem",
             maxHeight: "400px",
             overflowY: "auto",
@@ -336,7 +315,9 @@ No product-specific training data is available. Start the call by quickly clarif
           }}
         >
           {logs.length === 0 ? (
-            <div style={{ color: "#999" }}>No logs yet. Start a session to see activity.</div>
+            <div style={{ color: "#999", textAlign: "center", padding: "2rem" }}>
+              No logs yet. Start a session to see activity.
+            </div>
           ) : (
             logs.map((log, index) => (
               <div
@@ -371,13 +352,14 @@ No product-specific training data is available. Start the call by quickly clarif
         </div>
       </div>
 
-      {/* Admin Link */}
-      <div style={{ marginTop: "2rem" }}>
+      {/* Link to Admin */}
+      <div style={{ marginTop: "2rem", textAlign: "center" }}>
         <Link
           href="/admin"
           style={{
             color: "#0070f3",
             textDecoration: "underline",
+            fontSize: "14px",
           }}
         >
           → Configure Agent Settings
@@ -386,4 +368,3 @@ No product-specific training data is available. Start the call by quickly clarif
     </div>
   );
 }
-

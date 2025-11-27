@@ -4,6 +4,7 @@ import {
   RealtimeAgent,
   RealtimeSession,
 } from "@openai/agents/realtime";
+import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 
 export type VoiceAgentMode = "training" | "call";
 
@@ -41,16 +42,33 @@ export class VoiceAgentSession {
       throw new Error("Invalid client secret from backend");
     }
 
-    // 2. Создаём голосового агента
+    // 2. Load persona configuration
+    const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
+    let personaId: AgentPersonaId = "james";
+    let personaVoice = "alloy";
+
+    if (stored) {
+      try {
+        const config = JSON.parse(stored) as { personaId?: AgentPersonaId };
+        if (config.personaId) {
+          personaId = config.personaId;
+        }
+      } catch (e) {
+        console.warn("Failed to parse config for persona:", e);
+      }
+    }
+
+    const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
+    personaVoice = persona.voice;
+
+    // 3. Создаём голосового агента
     const agent = new RealtimeAgent({
-      name: "sales-demo-agent",
+      name: persona.name.toLowerCase(),
       model: "gpt-4o-realtime-preview",
-      instructions:
-        options.instructions ||
-        "You are a friendly sales voice agent. Speak clearly and keep answers short.",
+      instructions: options.instructions || persona.defaultSystemPrompt,
       inputModalities: ["audio"],
       outputModalities: ["audio"],
-      voice: "alloy",
+      voice: personaVoice,
     } as any);
 
     // 3. Создаём сессию на базе агента
