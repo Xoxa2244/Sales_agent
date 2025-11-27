@@ -9,7 +9,6 @@ interface SalesAgentConfig {
   baseSystemPrompt: string;
   personaId?: AgentPersonaId;
   personaSystemPrompt?: string;
-  trainingSummary?: string | null;
 }
 
 const defaultConfig: SalesAgentConfig = {
@@ -17,7 +16,6 @@ const defaultConfig: SalesAgentConfig = {
   baseSystemPrompt: "You are a professional sales agent. Your goal is to qualify leads and schedule demo meetings. Be friendly, professional, and goal-oriented.",
   personaId: "ilona",
   personaSystemPrompt: AGENT_PERSONAS.find(p => p.id === "ilona")?.defaultSystemPrompt || "",
-  trainingSummary: null,
 };
 
 export default function AdminPage() {
@@ -28,7 +26,6 @@ export default function AdminPage() {
   useEffect(() => {
     // Load config from localStorage on mount
     const stored = localStorage.getItem("salesAgentConfig");
-    const trainingSummary = localStorage.getItem("salesAgentTrainingSummary");
     
     if (stored) {
       try {
@@ -40,10 +37,7 @@ export default function AdminPage() {
             parsed.personaSystemPrompt = persona.defaultSystemPrompt;
           }
         }
-        setConfig({
-          ...parsed,
-          trainingSummary: parsed.trainingSummary || trainingSummary || null,
-        });
+        setConfig(parsed);
       } catch (error) {
         console.error("Failed to parse stored config:", error);
       }
@@ -53,7 +47,6 @@ export default function AdminPage() {
       setConfig({
         ...defaultConfig,
         personaSystemPrompt: defaultPersona.defaultSystemPrompt,
-        trainingSummary: trainingSummary || null,
       });
     }
   }, []);
@@ -61,9 +54,6 @@ export default function AdminPage() {
   const handleSave = () => {
     try {
       localStorage.setItem("salesAgentConfig", JSON.stringify(config));
-      if (config.trainingSummary) {
-        localStorage.setItem("salesAgentTrainingSummary", config.trainingSummary);
-      }
       setSaved(true);
       setHasUnsavedChanges(false);
       setTimeout(() => setSaved(false), 2000);
@@ -234,28 +224,6 @@ export default function AdminPage() {
         />
       </div>
 
-      {/* Training Summary Display */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", fontWeight: "600" }}>
-          Training notes from voice session
-        </h2>
-        <textarea
-          value={config.trainingSummary || ""}
-          readOnly
-          rows={8}
-          placeholder="No training data yet — run a Training session and let the agent summarize your product and ICP."
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            fontSize: "14px",
-            fontFamily: "monospace",
-            backgroundColor: "#f9f9f9",
-            color: config.trainingSummary ? "#333" : "#999",
-          }}
-        />
-      </div>
 
       {/* Save Button */}
       <div style={{ marginBottom: "2rem" }}>

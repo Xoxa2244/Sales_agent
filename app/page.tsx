@@ -2,12 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { VoiceAgentSession, VoiceAgentMode } from "@/lib/realtimeClient";
+import { VoiceAgentSession } from "@/lib/realtimeClient";
 import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
-import {
-  BASE_SALES_AGENT_PROMPT,
-  TRAINING_MODE_PROMPT,
-} from "@/lib/prompts";
 
 interface LogEntry {
   type: "system" | "info" | "error";
@@ -20,18 +16,15 @@ interface SalesAgentConfig {
   baseSystemPrompt: string;
   personaId?: string;
   personaSystemPrompt?: string;
-  trainingSummary?: string | null;
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 export default function HomePage() {
-  const [mode, setMode] = useState<VoiceAgentMode>("training");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
-  const [trainingSummary, setTrainingSummary] = useState<string | null>(null);
 
   // Patch fetch to add OpenAI-Beta header for realtime calls
   useEffect(() => {
@@ -95,27 +88,23 @@ export default function HomePage() {
     }
   }, []);
 
-  // Load training summary from localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("salesAgentTrainingSummary");
-    if (saved) setTrainingSummary(saved);
-  }, []);
 
   const addLog = (type: LogEntry["type"], text: string) => {
     setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
   };
 
-  const buildFinalInstructions = (mode: VoiceAgentMode): string => {
+  const buildFinalInstructions = (): string => {
     // Load config from localStorage
     const stored = localStorage.getItem("salesAgentConfig");
-    let personaSystemPrompt: string | null = null;
+    let personaSystemPrompt: string = "";
     let personaId: string | undefined;
+    let guardrails: string | undefined;
 
     if (stored) {
       try {
         const config: SalesAgentConfig = JSON.parse(stored);
         personaId = config.personaId;
+        guardrails = config.guardrails;
         if (config.personaSystemPrompt) {
           personaSystemPrompt = config.personaSystemPrompt;
           console.log("Using personaSystemPrompt from config, length:", personaSystemPrompt.length);
@@ -141,22 +130,14 @@ export default function HomePage() {
 
     let instructions = personaSystemPrompt;
 
-    if (mode === "training") {
-      instructions = `${personaSystemPrompt}\n\n${TRAINING_MODE_PROMPT}`;
-    } else {
-      if (trainingSummary) {
-        instructions = `${personaSystemPrompt}
+    // Добавляем guardrails если они есть
+    if (guardrails && guardrails.trim()) {
+      instructions = `${instructions}
 
-### Product & Customer Profile (from training)
+# Guardrails
 
-${trainingSummary}
-
-Use this configuration as ground truth about the offer, target customers, lead source and temperature, objections and call goal. Do not repeat the training, speak as a normal sales agent to the caller.`;
-      } else {
-        instructions = `${personaSystemPrompt}
-
-No product-specific training data is available. Start the call by quickly clarifying what we sell, who the caller is and what they are looking for, then proceed as a generic sales agent.`;
-      }
+${guardrails}`;
+      console.log("Added guardrails to instructions, length:", guardrails.length);
     }
 
     return instructions;
@@ -171,44 +152,16 @@ No product-specific training data is available. Start the call by quickly clarif
       addLog("system", "Starting session...");
 
       const session = new VoiceAgentSession();
-      const finalInstructions = buildFinalInstructions(mode);
+      const finalInstructions = buildFinalInstructions();
 
       await session.start({
         instructions: finalInstructions,
-        mode,
-        onTrainingSummary:
-          mode === "training"
-            ? (summary) => {
-                setTrainingSummary(summary);
-                if (typeof window !== "undefined") {
-                  // Save to both places for compatibility
-                  window.localStorage.setItem(
-                    "salesAgentTrainingSummary",
-                    summary
-                  );
-                  // Also update the config
-                  const stored = localStorage.getItem("salesAgentConfig");
-                  if (stored) {
-                    try {
-                      const config: SalesAgentConfig = JSON.parse(stored);
-                      config.trainingSummary = summary;
-                      localStorage.setItem("salesAgentConfig", JSON.stringify(config));
-                    } catch (e) {
-                      console.warn("Failed to update config with training summary:", e);
-                    }
-                  }
-                }
-                addLog(
-                  "system",
-                  "Training profile saved. You can now switch to Call simulation mode."
-                );
-              }
-            : undefined,
+        mode: "call",
       });
 
       sessionRef.current = session;
       setStatus("connected");
-      addLog("system", `Session started in ${mode} mode`);
+      addLog("system", "Session started");
     } catch (error) {
       console.error("Failed to start session:", error);
       setStatus("disconnected");
@@ -242,79 +195,83 @@ No product-specific training data is available. Start the call by quickly clarif
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1000px", margin: "0 auto" }}>
-      <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "600" }}>
+      <h1 style={{ marginBottom: "3rem", fontSize: "2rem", fontWeight: "600", textAlign: "center" }}>
         Voice Sales Agent Demo
       </h1>
 
-      {/* Mode Selector - Large Toggle */}
-      <div style={{ marginBottom: "2rem" }}>
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <button
-            onClick={() => setMode("training")}
-            disabled={isRunning}
-            style={{
-              flex: 1,
-              padding: "1rem 2rem",
-              fontSize: "18px",
-              fontWeight: "600",
-              backgroundColor: mode === "training" ? "#0070f3" : "#f5f5f5",
-              color: mode === "training" ? "white" : "#333",
-              border: mode === "training" ? "none" : "2px solid #ddd",
-              borderRadius: "8px",
-              cursor: isRunning ? "not-allowed" : "pointer",
-              opacity: isRunning ? 0.6 : 1,
-              transition: "all 0.2s",
-            }}
-          >
-            Training
-          </button>
-          <button
-            onClick={() => setMode("call")}
-            disabled={isRunning}
-            style={{
-              flex: 1,
-              padding: "1rem 2rem",
-              fontSize: "18px",
-              fontWeight: "600",
-              backgroundColor: mode === "call" ? "#0070f3" : "#f5f5f5",
-              color: mode === "call" ? "white" : "#333",
-              border: mode === "call" ? "none" : "2px solid #ddd",
-              borderRadius: "8px",
-              cursor: isRunning ? "not-allowed" : "pointer",
-              opacity: isRunning ? 0.6 : 1,
-              transition: "all 0.2s",
-            }}
-          >
-            Call simulation
-          </button>
-        </div>
-      </div>
-
-      {/* Start/Stop Button */}
-      <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
+      {/* Start Session Button - Large Square with Gradient */}
+      <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "center" }}>
         <button
           onClick={isRunning ? handleStop : handleStart}
           disabled={status === "connecting"}
           style={{
-            padding: "1rem 3rem",
-            fontSize: "18px",
+            width: "280px",
+            height: "280px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "1rem",
+            fontSize: "20px",
             fontWeight: "600",
-            backgroundColor: isRunning ? "#dc3545" : "#0070f3",
             color: "white",
             border: "none",
-            borderRadius: "8px",
+            borderRadius: "16px",
             cursor: status === "connecting" ? "wait" : "pointer",
             opacity: status === "connecting" ? 0.6 : 1,
-            transition: "all 0.2s",
+            transition: "all 0.3s",
+            boxShadow: isRunning 
+              ? "0 4px 20px rgba(220, 53, 69, 0.4)" 
+              : "0 4px 20px rgba(0, 112, 243, 0.4)",
+            background: isRunning
+              ? "linear-gradient(135deg, #dc3545 0%, #c82333 100%)"
+              : "linear-gradient(135deg, #0070f3 0%, #0051cc 100%)",
           }}
         >
-          {isRunning ? "Stop session" : "Start session"}
+          {isRunning ? (
+            <>
+              <svg
+                width="64"
+                height="64"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+              <span>Stop Session</span>
+            </>
+          ) : (
+            <>
+              <svg
+                width="64"
+                height="64"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+              <span>Start Session</span>
+            </>
+          )}
         </button>
+      </div>
 
+      {/* Status Indicator */}
+      <div style={{ marginBottom: "2rem", textAlign: "center" }}>
         <div
           style={{
-            marginTop: "0.75rem",
-            fontSize: "14px",
+            fontSize: "16px",
             color: status === "connected" ? "#28a745" : status === "connecting" ? "#ffc107" : "#6c757d",
             fontWeight: "500",
           }}

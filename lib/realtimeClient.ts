@@ -6,12 +6,9 @@ import {
 } from "@openai/agents/realtime";
 import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 
-export type VoiceAgentMode = "training" | "call";
-
 export interface StartSessionOptions {
   instructions: string;
-  mode: VoiceAgentMode;
-  onTrainingSummary?: (summary: string) => void;
+  mode?: "call"; // Only call mode is supported now
 }
 
 export class VoiceAgentSession {
@@ -116,88 +113,6 @@ export class VoiceAgentSession {
       console.warn("Could not update voice via session.update():", e);
     }
 
-    // 5. Подписываемся на события для извлечения training summary (только в training режиме)
-    if (options.mode === "training" && options.onTrainingSummary) {
-      // Подписываемся на различные события для получения текста ответа
-      try {
-        // Пробуем разные варианты событий
-        const eventHandlers = [
-          "response.completed",
-          "response_done",
-          "response.finished",
-          "message.completed",
-          "output.completed",
-          "response_text.delta",
-          "response_text.done",
-        ];
-
-        eventHandlers.forEach((eventName) => {
-          try {
-            (session as any).on(eventName, (event: any) => {
-              console.log(`[TRAINING] Event ${eventName} received:`, event);
-              
-              // Пробуем разные пути к тексту
-              const text: string =
-                event?.response?.output_text ??
-                event?.response?.message?.content ??
-                event?.response?.text ??
-                event?.output_text ??
-                event?.message?.content ??
-                event?.content ??
-                event?.text ??
-                event?.data?.text ??
-                (typeof event === "string" ? event : "");
-
-              if (!text || typeof text !== "string") {
-                console.log(`[TRAINING] No text found in event ${eventName}`);
-                return;
-              }
-
-              console.log(`[TRAINING] Text from ${eventName}:`, text.substring(0, 200));
-
-              const startTag = "###TRAINING_SUMMARY_START";
-              const endTag = "###TRAINING_SUMMARY_END";
-
-              const start = text.indexOf(startTag);
-              const end = text.indexOf(endTag);
-
-              if (start !== -1 && end !== -1 && end > start) {
-                const raw = text.substring(start + startTag.length, end).trim();
-                console.log("[TRAINING] Found training summary:", raw.substring(0, 100));
-                options.onTrainingSummary?.(raw);
-              } else {
-                console.log(`[TRAINING] Tags not found in text. Start: ${start}, End: ${end}`);
-              }
-            });
-          } catch (e) {
-            // Игнорируем ошибки для несуществующих событий
-          }
-        });
-
-        // Также пробуем через agent события
-        try {
-          (agent as any).on?.("response", (event: any) => {
-            console.log("[TRAINING] Agent response event:", event);
-            const text = event?.text ?? event?.content ?? "";
-            if (text) {
-              const startTag = "###TRAINING_SUMMARY_START";
-              const endTag = "###TRAINING_SUMMARY_END";
-              const start = text.indexOf(startTag);
-              const end = text.indexOf(endTag);
-              if (start !== -1 && end !== -1 && end > start) {
-                const raw = text.substring(start + startTag.length, end).trim();
-                console.log("[TRAINING] Found training summary from agent:", raw.substring(0, 100));
-                options.onTrainingSummary?.(raw);
-              }
-            }
-          });
-        } catch (e) {
-          console.warn("[TRAINING] Could not subscribe to agent events:", e);
-        }
-      } catch (e) {
-        console.warn("Failed to subscribe to training summary events:", e);
-      }
-    }
 
     this.session = session;
   }
