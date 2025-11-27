@@ -49,7 +49,7 @@ export class VoiceAgentSession {
       inputModalities: ["audio"],
       outputModalities: ["audio"],
       voice: "verse", // можно потом вынести в настройки
-    });
+    } as any); // Type assertion needed as library types may not match actual API
 
     // 3. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
