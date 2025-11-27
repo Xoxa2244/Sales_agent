@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { instructions } = await req.json().catch(() => ({}));
+  const { instructions, voice } = await req.json().catch(() => ({}));
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -16,6 +16,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Build session config with instructions and voice
+    const sessionConfig: any = {
+      model: "gpt-4o-realtime-preview",
+    };
+
+    if (instructions && typeof instructions === "string") {
+      sessionConfig.instructions = instructions;
+    }
+
+    if (voice && typeof voice === "string") {
+      sessionConfig.voice = voice;
+    }
+
+    console.log("SERVER creating realtime session with:", {
+      hasInstructions: !!sessionConfig.instructions,
+      instructionsLength: sessionConfig.instructions?.length || 0,
+      voice: sessionConfig.voice || "not set",
+    });
+
     // 1. Создаём realtime-сессию в OpenAI
     const resp = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -24,10 +43,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "OpenAI-Beta": "realtime=v1",
       },
-      body: JSON.stringify({
-        model: "gpt-4o-realtime-preview",
-        instructions,
-      }),
+      body: JSON.stringify(sessionConfig),
     });
 
     const text = await resp.text();
@@ -53,6 +69,7 @@ export async function POST(req: NextRequest) {
     console.log("SERVER realtime session created:", {
       id: data.id,
       model: data.model,
+      voice: data.voice || "not set in response",
       clientSecretPrefix:
         typeof clientSecret === "string" ? clientSecret.slice(0, 4) : null,
     });

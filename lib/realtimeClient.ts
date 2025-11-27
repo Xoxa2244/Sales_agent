@@ -18,11 +18,39 @@ export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    // 1. Берём ephemeral clientSecret с бэкенда
+    // 1. Load persona configuration first to get voice
+    const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
+    let personaId: AgentPersonaId = "james";
+    let personaVoice = "ember"; // default for James
+
+    if (stored) {
+      try {
+        const config = JSON.parse(stored) as { personaId?: AgentPersonaId };
+        if (config.personaId) {
+          personaId = config.personaId;
+        }
+      } catch (e) {
+        console.warn("Failed to parse config for persona:", e);
+      }
+    }
+
+    const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
+    personaVoice = persona.voice;
+
+    // Use the instructions passed from the page (which includes personaSystemPrompt)
+    const finalInstructions = options.instructions || persona.defaultSystemPrompt;
+
+    console.log("Creating session with persona:", persona.name, "voice:", personaVoice);
+    console.log("Instructions length:", finalInstructions.length);
+
+    // 2. Берём ephemeral clientSecret с бэкенда, передавая instructions и voice
     const res = await fetch("/api/realtime-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}), // пока без доп. параметров
+      body: JSON.stringify({
+        instructions: finalInstructions,
+        voice: personaVoice,
+      }),
     });
 
     if (!res.ok) {
@@ -42,32 +70,7 @@ export class VoiceAgentSession {
       throw new Error("Invalid client secret from backend");
     }
 
-    // 2. Load persona configuration
-    const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
-    let personaId: AgentPersonaId = "james";
-    let personaVoice = "alloy";
-
-    if (stored) {
-      try {
-        const config = JSON.parse(stored) as { personaId?: AgentPersonaId };
-        if (config.personaId) {
-          personaId = config.personaId;
-        }
-      } catch (e) {
-        console.warn("Failed to parse config for persona:", e);
-      }
-    }
-
-    const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
-    personaVoice = persona.voice;
-
-    // Use the instructions passed from the page (which includes personaSystemPrompt)
-    const finalInstructions = options.instructions || persona.defaultSystemPrompt;
-
-    console.log("Creating agent with persona:", persona.name, "voice:", personaVoice);
-    console.log("Instructions length:", finalInstructions.length);
-
-    // 3. Создаём голосового агента
+    // 3. Создаём голосового агента (параметры уже переданы в API route, но нужны для RealtimeAgent)
     const agent = new RealtimeAgent({
       name: persona.name.toLowerCase(),
       model: "gpt-4o-realtime-preview",
