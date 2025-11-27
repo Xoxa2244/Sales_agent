@@ -69,6 +69,7 @@ export class VoiceAgentSession {
       
       await client.connect({
         apiKey: clientSecret, // Pass clientSecret as apiKey parameter
+        useInsecureApiKey: true, // Required for ephemeral client secrets in browser
         model: "gpt-4o-mini-realtime-preview",
         initialSessionConfig: {
           instructions: options.instructions,
