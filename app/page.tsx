@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VoiceAgentSession } from "@/lib/realtimeClient";
 import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
@@ -25,11 +26,25 @@ interface SalesAgentConfig {
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 export default function HomePage() {
+  const router = useRouter();
   const [selectedAgentId, setSelectedAgentId] = useState<AgentPersonaId>("ilona");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const auth = sessionStorage.getItem("isAuthenticated");
+      if (auth === "true") {
+        setIsAuthenticated(true);
+      } else {
+        router.push("/login");
+      }
+    }
+  }, [router]);
 
   // Patch fetch to add OpenAI-Beta header for realtime calls
   useEffect(() => {
@@ -131,6 +146,16 @@ ${guardrails}`;
       );
     }
   };
+
+  // Show nothing while checking authentication
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  // Redirect if not authenticated (handled by useEffect, but just in case)
+  if (isAuthenticated === false) {
+    return null;
+  }
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>

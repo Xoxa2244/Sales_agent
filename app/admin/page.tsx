@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 
@@ -15,12 +16,26 @@ interface SalesAgentConfig {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AgentPersonaId>("ilona");
   const [config, setConfig] = useState<SalesAgentConfig>({
     guardrails: "",
     agents: {},
   });
   const [saved, setSaved] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const auth = sessionStorage.getItem("isAuthenticated");
+      if (auth === "true") {
+        setIsAuthenticated(true);
+      } else {
+        router.push("/login");
+      }
+    }
+  }, [router]);
 
   useEffect(() => {
     // Load config from localStorage on mount
@@ -66,6 +81,16 @@ export default function AdminPage() {
 
   const currentAgent = AGENT_PERSONAS.find(p => p.id === activeTab) || AGENT_PERSONAS[0];
   const agentConfig = getCurrentAgentConfig();
+
+  // Show nothing while checking authentication
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  // Redirect if not authenticated (handled by useEffect, but just in case)
+  if (isAuthenticated === false) {
+    return null;
+  }
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
