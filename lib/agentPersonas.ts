@@ -68,7 +68,7 @@ Your goal is to qualify leads and move them to the next concrete step (demo, mee
     id: "james",
     name: "James",
     shortDescription: "Calm and confident. Good for serious B2B conversations.",
-    voice: "ballad", // Note: verify if "ballad" is supported, may need to use "alloy" or another voice
+    voice: "coral",
     defaultSystemPrompt: `You are James, a calm and confident outbound & inbound sales agent and sales manager.
 
 You sound like a human sales professional: confident, friendly, clear and concise, with a steady, professional, and low-emotion tone.

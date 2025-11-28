@@ -7,12 +7,6 @@ import { VoiceAgentSession } from "@/lib/realtimeClient";
 import { patchRealtimeFetch } from "@/lib/patchRealtimeFetch";
 import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 
-interface LogEntry {
-  type: "system" | "info" | "error";
-  text: string;
-  timestamp: Date;
-}
-
 interface SalesAgentConfig {
   guardrails?: string;
   agents?: {
@@ -30,7 +24,6 @@ export default function HomePage() {
   const [selectedAgentId, setSelectedAgentId] = useState<AgentPersonaId>("ilona");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const sessionRef = useRef<VoiceAgentSession | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
@@ -50,10 +43,6 @@ export default function HomePage() {
   useEffect(() => {
     patchRealtimeFetch();
   }, []);
-
-  const addLog = (type: LogEntry["type"], text: string) => {
-    setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
-  };
 
   const buildFinalInstructions = async (): Promise<string> => {
     const selectedAgent = AGENT_PERSONAS.find(p => p.id === selectedAgentId) || AGENT_PERSONAS[0];
@@ -118,7 +107,6 @@ ${guardrails}`;
     try {
       setStatus("connecting");
       setIsRunning(true);
-      addLog("system", "Starting session...");
 
       const session = new VoiceAgentSession();
       const finalInstructions = await buildFinalInstructions();
@@ -131,15 +119,10 @@ ${guardrails}`;
 
       sessionRef.current = session;
       setStatus("connected");
-      addLog("system", "Session started");
     } catch (error) {
       console.error("Failed to start session:", error);
-      setStatus("disconnected");
-      setIsRunning(false);
-      addLog(
-        "error",
-        `Failed to start session: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+              setStatus("disconnected");
+              setIsRunning(false);
     }
   };
 
@@ -151,16 +134,11 @@ ${guardrails}`;
         await sessionRef.current.stop();
         sessionRef.current = null;
       }
-      setStatus("disconnected");
-      setIsRunning(false);
-      addLog("system", "Session stopped");
-    } catch (error) {
-      console.error("Failed to stop session:", error);
-      addLog(
-        "error",
-        `Failed to stop session: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
+              setStatus("disconnected");
+              setIsRunning(false);
+            } catch (error) {
+              console.error("Failed to stop session:", error);
+            }
   };
 
   // Show nothing while checking authentication
@@ -195,6 +173,8 @@ ${guardrails}`;
                 key={agent.id}
                 onClick={() => !isRunning && setSelectedAgentId(agent.id)}
                 style={{
+                  width: "280px",
+                  height: "200px",
                   padding: "1.5rem",
                   border: isSelected ? "3px solid #0070f3" : "2px solid #ddd",
                   borderRadius: "12px",
@@ -202,30 +182,27 @@ ${guardrails}`;
                   cursor: isRunning ? "not-allowed" : "pointer",
                   opacity: isRunning ? 0.6 : 1,
                   transition: "all 0.2s",
+                  display: "flex",
+                  flexDirection: "column",
+                  boxShadow: isSelected ? "0 4px 12px rgba(0, 112, 243, 0.15)" : "0 2px 8px rgba(0,0,0,0.05)",
                 }}
               >
-                <h3 style={{ fontSize: "24px", fontWeight: "600", marginBottom: "0.5rem", color: "#333" }}>
+                <h3 style={{ fontSize: "24px", fontWeight: "600", marginBottom: "0.75rem", color: "#333", flexShrink: 0 }}>
                   {agent.name}
                 </h3>
-                <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>
-                  {agent.shortDescription}
-                </p>
-                {isSelected && (
-                  <div
-                    style={{
-                      marginTop: "1rem",
-                      padding: "0.5rem",
-                      backgroundColor: "#0070f3",
-                      color: "white",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      fontWeight: "500",
-                      textAlign: "center",
-                    }}
-                  >
-                    Selected
-                  </div>
-                )}
+                <div
+                  className="agent-card-scroll"
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    paddingRight: "4px",
+                  }}
+                >
+                  <p style={{ fontSize: "14px", color: "#666", margin: 0, lineHeight: "1.5" }}>
+                    {agent.shortDescription}
+                  </p>
+                </div>
               </div>
             );
           })}
@@ -312,60 +289,6 @@ ${guardrails}`;
           {status === "disconnected" && "Disconnected"}
           {status === "connecting" && "Connecting..."}
           {status === "connected" && "Connected"}
-        </div>
-      </div>
-
-      {/* Session Logs */}
-      <div style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: "600" }}>
-          Session Logs
-        </h2>
-        <div
-          style={{
-            backgroundColor: "#fff",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            padding: "1rem",
-            maxHeight: "400px",
-            overflowY: "auto",
-            fontSize: "14px",
-          }}
-        >
-          {logs.length === 0 ? (
-            <div style={{ color: "#999", textAlign: "center", padding: "2rem" }}>
-              No logs yet. Start a session to see activity.
-            </div>
-          ) : (
-            logs.map((log, index) => (
-              <div
-                key={index}
-                style={{
-                  marginBottom: "0.5rem",
-                  padding: "0.5rem",
-                  backgroundColor:
-                    log.type === "error"
-                      ? "#fee"
-                      : log.type === "system"
-                      ? "#eef"
-                      : "#f9f9f9",
-                  borderRadius: "4px",
-                }}
-              >
-                <span style={{ color: "#999", fontSize: "12px" }}>
-                  {log.timestamp.toLocaleTimeString()}
-                </span>
-                <span
-                  style={{
-                    marginLeft: "0.5rem",
-                    fontWeight: log.type === "error" ? "500" : "normal",
-                    color: log.type === "error" ? "#dc3545" : "#333",
-                  }}
-                >
-                  [{log.type.toUpperCase()}] {log.text}
-                </span>
-              </div>
-            ))
-          )}
         </div>
       </div>
 

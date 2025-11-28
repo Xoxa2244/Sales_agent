@@ -31,3 +31,21 @@ textarea {
   font-family: inherit;
 }
 
+/* Custom scrollbar for agent cards */
+.agent-card-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.agent-card-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agent-card-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 2px;
+}
+
+.agent-card-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
