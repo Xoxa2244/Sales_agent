@@ -9,17 +9,36 @@ import { AGENT_PERSONAS, AgentPersonaId } from "@/lib/agentPersonas";
 export interface StartSessionOptions {
   instructions: string;
   mode?: "call"; // Only call mode is supported now
-  agentId?: AgentPersonaId; // Selected agent ID
+  agentId?: AgentPersonaId;
 }
 
 export class VoiceAgentSession {
   private session: RealtimeSession | null = null;
 
   async start(options: StartSessionOptions): Promise<void> {
-    // 1. Get selected agent ID from options or use default
-    const personaId: AgentPersonaId = options.agentId || "ilona";
+    // 1. Load persona configuration first to get voice
+    const stored = typeof window !== "undefined" ? localStorage.getItem("salesAgentConfig") : null;
+    let personaId: AgentPersonaId = options.agentId || "ilona";
+    let personaVoice = "sage"; // default for Ilona
+
+    if (stored) {
+      try {
+        const config = JSON.parse(stored) as { personaId?: AgentPersonaId };
+        if (config.personaId) {
+          personaId = config.personaId;
+        }
+      } catch (e) {
+        console.warn("Failed to parse config for persona:", e);
+      }
+    }
+
+    // Use agentId from options if provided
+    if (options.agentId) {
+      personaId = options.agentId;
+    }
+
     const persona = AGENT_PERSONAS.find(p => p.id === personaId) || AGENT_PERSONAS[0];
-    const personaVoice = persona.voice;
+    personaVoice = persona.voice;
 
     // Use the instructions passed from the page (which includes personaSystemPrompt)
     const finalInstructions = options.instructions || persona.defaultSystemPrompt;
@@ -59,28 +78,22 @@ export class VoiceAgentSession {
     }
 
     // 3. Создаём голосового агента
-    // ВАЖНО: instructions должны быть установлены и в RealtimeAgent, и переданы в API route
-    // Используем имя персоны как есть (Ilona), не lowercase
-    console.log("Creating RealtimeAgent with instructions length:", finalInstructions.length);
     const agent = new RealtimeAgent({
       name: persona.name, // Используем "Ilona" вместо "ilona"
       model: "gpt-4o-realtime-preview",
-      instructions: finalInstructions, // КРИТИЧНО: инструкции должны быть здесь
+      instructions: finalInstructions,
       inputModalities: ["audio"],
       outputModalities: ["audio"],
       voice: personaVoice,
     } as any);
-    
-    console.log("RealtimeAgent created, checking if instructions are set:", !!agent);
 
     // 4. Создаём сессию на базе агента
     const session = new RealtimeSession(agent);
 
     // 5. Подключаемся, используя ephemeral clientSecret как apiKey
-    // Голос уже установлен в RealtimeAgent, но также пробуем через connect
+    // Устанавливаем голос через initialSessionConfig, чтобы он применился к уже созданной сессии
     await session.connect({
       apiKey: clientSecret,
-      // Пробуем установить голос через initialSessionConfig
       initialSessionConfig: {
         voice: personaVoice,
       },
@@ -99,7 +112,6 @@ export class VoiceAgentSession {
     } catch (e) {
       console.warn("Could not update voice via session.update():", e);
     }
-
 
     this.session = session;
   }
@@ -127,3 +139,4 @@ export class VoiceAgentSession {
 export function createVoiceAgentSession(): VoiceAgentSession {
   return new VoiceAgentSession();
 }
+

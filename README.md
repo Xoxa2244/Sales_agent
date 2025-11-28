@@ -18,6 +18,7 @@ A minimal demo project for a voice sales agent using OpenAI Realtime API, built 
 - React
 - OpenAI Realtime API (`@openai/agents/realtime`)
 - WebRTC for real-time audio
+- Supabase (для хранения конфигурации агентов)
 
 ## Setup
 
@@ -30,7 +31,13 @@ A minimal demo project for a voice sales agent using OpenAI Realtime API, built 
    Create a `.env.local` file in the root directory:
    ```
    OPENAI_API_KEY=your-openai-api-key-here
+   NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
+
+   **Supabase Setup** (для хранения конфигурации агентов):
+   - См. инструкцию в `SUPABASE_SETUP.md`
+   - Если Supabase не настроен, система использует localStorage как fallback
 
 3. **Run development server**:
    ```bash
@@ -82,13 +89,16 @@ A minimal demo project for a voice sales agent using OpenAI Realtime API, built 
 
 1. Push code to GitHub repository
 2. Import project in Vercel
-3. Add environment variable `OPENAI_API_KEY` in Vercel dashboard
+3. Add environment variables in Vercel dashboard:
+   - `OPENAI_API_KEY` - ваш OpenAI API ключ
+   - `NEXT_PUBLIC_SUPABASE_URL` - URL вашего Supabase проекта
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Anon Key из Supabase
 4. Deploy
 
 ## Notes
 
 - This is a minimal MVP demo
-- Configuration is stored in browser localStorage (not persisted across devices)
-- No database integration yet
+- Configuration is stored in Supabase (persisted across devices and deployments)
+- Falls back to localStorage if Supabase is not configured
 - WebRTC requires HTTPS in production (Vercel provides this automatically)
 

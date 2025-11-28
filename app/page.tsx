@@ -55,17 +55,17 @@ export default function HomePage() {
     setLogs((prev) => [...prev, { type, text, timestamp: new Date() }]);
   };
 
-  const buildFinalInstructions = (): string => {
-    // Load config from localStorage
-    const stored = localStorage.getItem("salesAgentConfig");
+  const buildFinalInstructions = async (): Promise<string> => {
     const selectedAgent = AGENT_PERSONAS.find(p => p.id === selectedAgentId) || AGENT_PERSONAS[0];
     
     let agentSystemPrompt = selectedAgent.defaultSystemPrompt;
     let guardrails: string | undefined;
 
-    if (stored) {
-      try {
-        const config: SalesAgentConfig = JSON.parse(stored);
+    try {
+      // Try to load from server API first
+      const res = await fetch("/api/config");
+      if (res.ok) {
+        const config: SalesAgentConfig = await res.json();
         guardrails = config.guardrails;
         
         // Get agent-specific prompt if exists
@@ -76,8 +76,24 @@ export default function HomePage() {
           agentSystemPrompt = selectedAgent.defaultSystemPrompt;
           console.log(`Using default systemPrompt for ${selectedAgent.name}, length: ${agentSystemPrompt.length}`);
         }
-      } catch (error) {
-        console.error("Failed to parse stored config:", error);
+      } else {
+        throw new Error("Server config not available");
+      }
+    } catch (error) {
+      // Fallback to localStorage
+      console.warn("Failed to load config from server, using localStorage:", error);
+      const stored = localStorage.getItem("salesAgentConfig");
+      if (stored) {
+        try {
+          const config: SalesAgentConfig = JSON.parse(stored);
+          guardrails = config.guardrails;
+          
+          if (config.agents?.[selectedAgentId]?.systemPrompt) {
+            agentSystemPrompt = config.agents[selectedAgentId]!.systemPrompt!;
+          }
+        } catch (parseError) {
+          console.error("Failed to parse stored config:", parseError);
+        }
       }
     }
 
@@ -105,7 +121,7 @@ ${guardrails}`;
       addLog("system", "Starting session...");
 
       const session = new VoiceAgentSession();
-      const finalInstructions = buildFinalInstructions();
+      const finalInstructions = await buildFinalInstructions();
 
       await session.start({
         instructions: finalInstructions,

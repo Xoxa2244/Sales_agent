@@ -38,27 +38,75 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    // Load config from localStorage on mount
-    const stored = localStorage.getItem("salesAgentConfig");
-    
-    if (stored) {
+    // Load config from server API
+    const loadConfig = async () => {
       try {
-        const parsed = JSON.parse(stored) as SalesAgentConfig;
-        setConfig(parsed);
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const serverConfig = await res.json() as SalesAgentConfig;
+          setConfig(serverConfig);
+        } else {
+          // Fallback to localStorage if server fails
+          const stored = localStorage.getItem("salesAgentConfig");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored) as SalesAgentConfig;
+              setConfig(parsed);
+            } catch (error) {
+              console.error("Failed to parse stored config:", error);
+            }
+          }
+        }
       } catch (error) {
-        console.error("Failed to parse stored config:", error);
+        console.error("Failed to load config from server:", error);
+        // Fallback to localStorage
+        const stored = localStorage.getItem("salesAgentConfig");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as SalesAgentConfig;
+            setConfig(parsed);
+          } catch (error) {
+            console.error("Failed to parse stored config:", error);
+          }
+        }
       }
-    }
+    };
+    
+    loadConfig();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      localStorage.setItem("salesAgentConfig", JSON.stringify(config));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      // Save to server API
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+
+      if (res.ok) {
+        // Also save to localStorage as backup
+        localStorage.setItem("salesAgentConfig", JSON.stringify(config));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        // Fallback to localStorage if server fails
+        localStorage.setItem("salesAgentConfig", JSON.stringify(config));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        console.warn("Server save failed, saved to localStorage only");
+      }
     } catch (error) {
       console.error("Failed to save config:", error);
-      alert("Failed to save configuration");
+      // Fallback to localStorage
+      try {
+        localStorage.setItem("salesAgentConfig", JSON.stringify(config));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        console.warn("Server save failed, saved to localStorage only");
+      } catch (localError) {
+        alert("Failed to save configuration");
+      }
     }
   };
 
