@@ -161,9 +161,10 @@ ${guardrails}`;
       <div style={{ marginBottom: "3rem" }}>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "1.5rem",
+            display: "flex",
+            justifyContent: "center",
+            gap: "0.75rem",
+            flexWrap: "wrap",
           }}
         >
           {AGENT_PERSONAS.map((agent) => {
@@ -173,7 +174,7 @@ ${guardrails}`;
                 key={agent.id}
                 onClick={() => !isRunning && setSelectedAgentId(agent.id)}
                 style={{
-                  width: "280px",
+                  width: "320px",
                   height: "200px",
                   padding: "1.5rem",
                   border: isSelected ? "3px solid #0070f3" : "2px solid #ddd",
