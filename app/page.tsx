@@ -26,6 +26,7 @@ export default function HomePage() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const sessionRef = useRef<VoiceAgentSession | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [agentConfig, setAgentConfig] = useState<SalesAgentConfig | null>(null);
 
   // Check authentication
   useEffect(() => {
@@ -42,6 +43,44 @@ export default function HomePage() {
   // Patch fetch to add OpenAI-Beta header for realtime calls
   useEffect(() => {
     patchRealtimeFetch();
+  }, []);
+
+  // Load agent config for displaying short descriptions
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+          const config = await res.json() as SalesAgentConfig;
+          setAgentConfig(config);
+        } else {
+          // Fallback to localStorage
+          const stored = localStorage.getItem("salesAgentConfig");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored) as SalesAgentConfig;
+              setAgentConfig(parsed);
+            } catch (error) {
+              console.error("Failed to parse stored config:", error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load config:", error);
+        // Fallback to localStorage
+        const stored = localStorage.getItem("salesAgentConfig");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as SalesAgentConfig;
+            setAgentConfig(parsed);
+          } catch (error) {
+            console.error("Failed to parse stored config:", error);
+          }
+        }
+      }
+    };
+    
+    loadConfig();
   }, []);
 
   const buildFinalInstructions = async (): Promise<string> => {
@@ -169,6 +208,9 @@ ${guardrails}`;
         >
           {AGENT_PERSONAS.map((agent) => {
             const isSelected = selectedAgentId === agent.id;
+            // Get shortDescription from config if available, otherwise use default
+            const shortDescription = agentConfig?.agents?.[agent.id]?.shortDescription || agent.shortDescription;
+            
             return (
               <div
                 key={agent.id}
@@ -201,7 +243,7 @@ ${guardrails}`;
                   }}
                 >
                   <p style={{ fontSize: "14px", color: "#666", margin: 0, lineHeight: "1.5" }}>
-                    {agent.shortDescription}
+                    {shortDescription}
                   </p>
                 </div>
               </div>

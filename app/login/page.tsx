@@ -138,6 +138,17 @@ export default function LoginPage() {
             Sign In
           </button>
         </form>
+
+        <div
+          style={{
+            marginTop: "2rem",
+            textAlign: "center",
+            fontSize: "12px",
+            color: "#999",
+          }}
+        >
+          © Benehab Inc 2025
+        </div>
       </div>
     </div>
   );
